@@ -8,7 +8,6 @@ from PyQt5.QtGui import QKeySequence
 
 from aqt.utils import showInfo, tooltip
 
-
 ########################################
 # Editor
 
@@ -185,7 +184,8 @@ class AddCardsExtension:
         self.state_clear_fields()
         self.state_clear_tags()
         # focus on the first field
-        self.editor.web.eval("focusField(1)")
+        self.editor.web.setFocus()
+        self.editor.web.eval("focusField(0)")
 
     def state_clear_fields(self):
         note = self.editor.note
