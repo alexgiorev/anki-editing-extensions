@@ -1,0 +1,12 @@
+* Automatic first field prefix
+Press ~Ctrl+Alt+P~ to specify the prefix. Thereafter it will be automatically inserted in the first field of each new note. To stop this, just invoke ~Ctrl+Alt+P~ again and empty the form.
+* Codify selection
+Useful for when making a lot of programming related cards.
+
+If you select a text and invoke ~Ctrl+Alt+C~, it will "codify" it, ~like this~. If there is no selected text, pressing the shortcut will open a form which asks for the code. Pressing Enter will then insert the text you typed in the form ~codified~.
+* Storing/restoring the state of the Add dialog
+Often I'm writing a note for one context, but I get an idea for another. This necessitates changing the deck, note type, fields and tags for the new note, and then restoring them to their previous state. There is a set of commands, all bound to the prefix ~Ctrl+Alt+S~, which facilitate this. To store the current state, invoke ~Ctrl+Alt+S, S~ (that is ~Ctrl+Alt+S~ followed by ~S~). You can then change the state to whatever you like. To restore what you saved, invoke ~Ctrl+Alt+S, R~. If you want to at the same time store the state and clear the fields and tags, invoke ~Ctrl+Alt+S, C~ (the ~C~ stands for "Clear")
+* Old cloze behavior
+With the newest version of Anki, the Cloze behavior has changed. Now you cannot use ~Ctrl+Shift+C~ to cloze in a note whose note type is not a Cloze type. This introduces friction in my workflow, so I rebound ~Ctrl+Shift+C~ to invoke the old behavior.
+* Focus on first field
+The ~Ctrl+Alt+1~ key is bound to a command which focuses on the first field. I frequently find this useful, e.g. after changing the tags with ~Ctrl+Shift+T~.
