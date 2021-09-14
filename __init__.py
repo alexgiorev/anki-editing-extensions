@@ -177,6 +177,9 @@ class AddCardsExtension:
         note.tags = tags[:]
         self.editor.loadNote()
         self.state_update_tags_UI()
+        # focus on the first field
+        self.editor.web.setFocus()
+        self.editor.web.eval("focusField(0)")
 
     @addcards_command("Ctrl+Alt+S, C")
     def state_store_and_clear(self):
