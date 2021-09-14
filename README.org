@@ -1,3 +1,5 @@
+* Installation
+If you want to install this, just create a subdirectory in the Anki addons directory and paste the ~__init__.py~ file there. The addon directory you can access through Tools -> Addons -> View Files.
 * Automatic first field prefix
 Press ~Ctrl+Alt+P~ to specify the prefix. Thereafter it will be automatically inserted in the first field of each new note. To stop this, just invoke ~Ctrl+Alt+P~ again and empty the form.
 * Codify selection
