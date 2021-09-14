@@ -3,6 +3,7 @@ import html
 from aqt import gui_hooks
 from PyQt5.QtWidgets import QInputDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
+from aqt.utils import showInfo
 
 
 ########################################
@@ -72,8 +73,9 @@ class AddCardsExtension:
         self.addcards = addcards # set in add_cards_did_init
         self.editor = addcards.editor
         self.setup_shortcuts()
-        # TODO: Handle this better, so that extension is easy
-        self.setup_prefix_first_field()
+        # extensions setup
+        self.prefix_setup()
+        self.state_setup()
 
     ########################################
     # shortcuts
@@ -89,11 +91,12 @@ class AddCardsExtension:
     ########################################
     # prefix_first_field
 
-    def setup_prefix_first_field(self):
+    def prefix_setup(self):
         # attributes
         self.prefix = None
         # relevant hooks
-        gui_hooks.add_cards_did_add_note.append(self.add_cards_did_add_note)
+        gui_hooks.add_cards_did_add_note.append(
+            self.prefix_add_cards_did_add_note)
 
     @addcards_command("Ctrl+Alt+P")
     def prefix_first_field(self):
@@ -102,16 +105,16 @@ class AddCardsExtension:
         # The arguments are [parent, title, label, text]
         new, accepted = QInputDialog.getText(None, "", "Enter prefix: ", text=old)
         if accepted:
-            self.change_prefix(new)
-        self.load_prefix(old=old)
+            self.prefix_change(new)
+        self.prefix_load(old=old)
         
-    def change_prefix(self, new):
+    def prefix_change(self, new):
         if new is None or new.isspace():
             self.prefix = None
         else:
             self.prefix = new
     
-    def load_prefix(self, old=None):
+    def prefix_load(self, old=None):
         """Inserts the prefix into the note being edited"""
         prefix = self.prefix
         if prefix is not None:
@@ -132,8 +135,15 @@ class AddCardsExtension:
             """
             self.editor.web.eval(js)
     
-    def add_cards_did_add_note(self, note):
-        self.load_prefix()
+    def prefix_add_cards_did_add_note(self, note):
+        self.prefix_load()
+
+    ########################################
+    # Use the old Cloze behavior, I don't like the new one
+    
+    @addcards_command("Ctrl+Shift+C")
+    def old_cloze(self):
+        self.addcards.editor.onCloze()
         
 ########################################
 # main hooks
