@@ -164,7 +164,6 @@ class AddCardsExtension:
         fields = note.fields[:]
         tags = note.tags[:]
         self.state = self.state_type(notetype_id, deck_id, fields, tags)
-        print(f"# Stored {self.state}")
 
     @addcards_command("Ctrl+Alt+S, R")
     def state_restore(self):
@@ -179,6 +178,28 @@ class AddCardsExtension:
         note.tags = tags[:]
         self.editor.loadNote()
         self.state_update_tags_UI()
+
+    @addcards_command("Ctrl+Alt+S, C")
+    def state_store_and_clear(self):
+        self.state_store()
+        self.state_clear_fields()
+        self.state_clear_tags()
+        # focus on the first field
+        self.editor.web.eval("focusField(1)")
+
+    def state_clear_fields(self):
+        note = self.editor.note
+        note.fields = [""] * len(note.fields)
+        self.editor.loadNote()
+
+    def state_clear_tags(self):
+        note = self.editor.note
+        note.tags = []
+        self.state_update_tags_UI()
+
+    def state_update_tags_UI(self):
+        note = self.editor.note
+        self.editor.tags.setText(note.string_tags().strip())
         
 ########################################
 # main hooks
