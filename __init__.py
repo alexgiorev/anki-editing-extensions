@@ -1,9 +1,12 @@
 import json
 import html
+from collections import namedtuple
+
 from aqt import gui_hooks
 from PyQt5.QtWidgets import QInputDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
-from aqt.utils import showInfo
+
+from aqt.utils import showInfo, tooltip
 
 
 ########################################
@@ -144,6 +147,38 @@ class AddCardsExtension:
     @addcards_command("Ctrl+Shift+C")
     def old_cloze(self):
         self.addcards.editor.onCloze()
+
+    ########################################
+    # state management
+
+    def state_setup(self):
+        self.state_type = namedtuple("AddCardsState",
+                                     "notetype_id deck_id fields tags")
+        self.state = None
+    
+    @addcards_command("Ctrl+Alt+S, S")
+    def state_store(self):
+        notetype_id = self.addcards.notetype_chooser.selected_notetype_id
+        deck_id = self.addcards.deck_chooser.selected_deck_id
+        note = self.editor.note
+        fields = note.fields[:]
+        tags = note.tags[:]
+        self.state = self.state_type(notetype_id, deck_id, fields, tags)
+        print(f"# Stored {self.state}")
+
+    @addcards_command("Ctrl+Alt+S, R")
+    def state_restore(self):
+        if self.state is None:
+            tooltip("No state is currently stored")
+            return
+        notetype_id, deck_id, fields, tags = self.state
+        self.addcards.notetype_chooser.selected_notetype_id = notetype_id
+        self.addcards.deck_chooser.selected_deck_id = deck_id
+        note = self.editor.note
+        note.fields = fields[:]
+        note.tags = tags[:]
+        self.editor.loadNote()
+        self.state_update_tags_UI()
         
 ########################################
 # main hooks
