@@ -18,9 +18,9 @@ class Extension:
 
     def add_shortcut(self, key_seq_str, func):
         key_seq = QKeySequence(key_seq_str)
-        QShortcut(key_seq_str, self.addcards, activated=func)
+        QShortcut(key_seq_str, self.widget, activated=func)
 
-    def focus_on_field(self, N):
+    def focus_field(self, N):
         self.editor.web.setFocus()
         self.editor.web.eval(f"focusField({N})")
 
@@ -39,19 +39,9 @@ def editor_command(key_seq_str):
 class EditorExtension(Extension):
     def __init__(self, editor, bindings):
         self.editor = editor
+        self.widget = editor.widget
         self.bindings = bindings
         self.setup_shortcuts()
-
-    ########################################
-    # shortcuts
-    def setup_shortcuts(self):
-        for key_seq_str, command_name in self.bindings.items():
-            method = getattr(self, command_name)
-            self.add_shortcut(key_seq_str, method)
-
-    def add_shortcut(self, key_seq_str, func):
-        key_seq = QKeySequence(key_seq_str)
-        QShortcut(key_seq_str, self.editor.widget, activated=func)
     
     ########################################
     # codify_selection
@@ -66,7 +56,7 @@ class EditorExtension(Extension):
             selected_text = html.escape(selected_text)
             codified = json.dumps(f"<code>{selected_text}</code>")
         else:
-            input_text, accepted = QInputDialog.getText(None, "", "")
+            input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
             if not accepted:
                 return
             escaped = html.escape(input_text)
@@ -75,6 +65,14 @@ class EditorExtension(Extension):
         document.execCommand("insertHTML", false, {codified});
         """
         web.eval(js)
+
+        ########################################
+        # Focus on the first field. I don't yet feel a need for commands which
+        # focus on other fields.
+
+    @editor_command("Ctrl+Alt+1")
+    def focus_first_field(self):
+        self.focus_field(0)
 
 ########################################
 # AddCards
@@ -89,7 +87,7 @@ def addcards_command(key_seq_str):
 
 class AddCardsExtension(Extension):
     def __init__(self, addcards, bindings):
-        self.addcards = addcards # set in add_cards_did_init
+        self.addcards = self.widget = addcards
         self.editor = addcards.editor
         self.bindings = bindings
         self.setup_shortcuts()
@@ -184,7 +182,7 @@ class AddCardsExtension(Extension):
         note.tags = tags[:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        self.focus_on_field(0)
+        self.focus_field(0)
 
     @addcards_command("Ctrl+Alt+S, C")
     def state_store_and_clear(self):
@@ -192,7 +190,7 @@ class AddCardsExtension(Extension):
         self.state_clear_fields()
         self.state_clear_tags()
         # focus on the first field
-        self.focus_on_field(0)
+        self.focus_field(0)
         
     def state_clear_fields(self):
         note = self.editor.note
