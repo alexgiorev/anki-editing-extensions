@@ -9,6 +9,22 @@ from PyQt5.QtGui import QKeySequence
 from aqt.utils import showInfo, tooltip
 
 ########################################
+# Extension base class
+class Extension:
+    def setup_shortcuts(self):
+        for key_seq_str, command_name in self.bindings.items():
+            method = getattr(self, command_name)
+            self.add_shortcut(key_seq_str, method)
+
+    def add_shortcut(self, key_seq_str, func):
+        key_seq = QKeySequence(key_seq_str)
+        QShortcut(key_seq_str, self.addcards, activated=func)
+
+    def focus_on_field(self, N):
+        self.editor.web.setFocus()
+        self.editor.web.eval(f"focusField({N})")
+
+########################################
 # Editor
 
 editor_commands = {}
@@ -20,15 +36,16 @@ def editor_command(key_seq_str):
         return func
     return decorator
 
-class EditorExtension:
-    def __init__(self, editor):
+class EditorExtension(Extension):
+    def __init__(self, editor, bindings):
         self.editor = editor
+        self.bindings = bindings
         self.setup_shortcuts()
 
     ########################################
     # shortcuts
     def setup_shortcuts(self):
-        for key_seq_str, command_name in editor_commands.items():
+        for key_seq_str, command_name in self.bindings.items():
             method = getattr(self, command_name)
             self.add_shortcut(key_seq_str, method)
 
@@ -58,7 +75,7 @@ class EditorExtension:
         document.execCommand("insertHTML", false, {codified});
         """
         web.eval(js)
-        
+
 ########################################
 # AddCards
 addcards_commands = {}
@@ -70,25 +87,15 @@ def addcards_command(key_seq_str):
         return func
     return decorator
 
-class AddCardsExtension:
-    def __init__(self, addcards):
+class AddCardsExtension(Extension):
+    def __init__(self, addcards, bindings):
         self.addcards = addcards # set in add_cards_did_init
         self.editor = addcards.editor
+        self.bindings = bindings
         self.setup_shortcuts()
         # extensions setup
         self.prefix_setup()
         self.state_setup()
-
-    ########################################
-    # shortcuts
-    def setup_shortcuts(self):
-        for key_seq_str, command_name in addcards_commands.items():
-            method = getattr(self, command_name)
-            self.add_shortcut(key_seq_str, method)
-
-    def add_shortcut(self, key_seq_str, func):
-        key_seq = QKeySequence(key_seq_str)
-        QShortcut(key_seq_str, self.addcards, activated=func)
         
     ########################################
     # prefix_first_field
@@ -145,7 +152,7 @@ class AddCardsExtension:
     
     @addcards_command("Ctrl+Shift+C")
     def old_cloze(self):
-        self.addcards.editor.onCloze()
+        self.editor.onCloze()
 
     ########################################
     # state management
@@ -177,9 +184,7 @@ class AddCardsExtension:
         note.tags = tags[:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        # focus on the first field
-        self.editor.web.setFocus()
-        self.editor.web.eval("focusField(0)")
+        self.focus_on_field(0)
 
     @addcards_command("Ctrl+Alt+S, C")
     def state_store_and_clear(self):
@@ -187,9 +192,8 @@ class AddCardsExtension:
         self.state_clear_fields()
         self.state_clear_tags()
         # focus on the first field
-        self.editor.web.setFocus()
-        self.editor.web.eval("focusField(0)")
-
+        self.focus_on_field(0)
+        
     def state_clear_fields(self):
         note = self.editor.note
         note.fields = [""] * len(note.fields)
@@ -209,11 +213,11 @@ class AddCardsExtension:
 
 def editor_did_init(editor):
     # attach as an attribute to prevent premature garbage collection
-    editor._editor_extension = EditorExtension(editor)
+    editor._editor_extension = EditorExtension(editor, editor_commands)
 
 def add_cards_did_init(addcards):
     # attach as an attribute to prevent premature garbage collection
-    addcards._addcards_extension = AddCardsExtension(addcards)
+    addcards._addcards_extension = AddCardsExtension(addcards, addcards_commands)
 
 gui_hooks.editor_did_init.append(editor_did_init)
 gui_hooks.add_cards_did_init.append(add_cards_did_init)
