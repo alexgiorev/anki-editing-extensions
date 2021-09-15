@@ -102,6 +102,26 @@ class EditorExtension(Extension):
         """
         self.editor.web.eval(js)
 
+    @editor_command("Alt+F")
+    def emacs_forward_word(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "forward", "word");
+        })();
+        """
+        self.editor.web.eval(js)
+        
+    @editor_command("Alt+B")
+    def emacs_backward_word(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "backward", "word");
+        })();
+        """
+        self.editor.web.eval(js)
+
 ########################################
 # AddCards
 addcards_commands = {}
