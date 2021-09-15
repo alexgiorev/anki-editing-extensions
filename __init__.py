@@ -66,13 +66,15 @@ class EditorExtension(Extension):
         """
         web.eval(js)
 
-        ########################################
-        # Focus on the first field. I don't yet feel a need for commands which
-        # focus on other fields.
+    ########################################
+    # Focus on the first field. I don't yet feel a need for commands which
+    # focus on other fields.
 
     @editor_command("Ctrl+Alt+1")
     def focus_first_field(self):
         self.focus_field(0)
+
+        
 
 ########################################
 # AddCards
