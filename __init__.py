@@ -4,7 +4,8 @@ from collections import namedtuple
 
 from aqt import gui_hooks
 from PyQt5.QtWidgets import QInputDialog, QShortcut
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QKeyEvent
+from PyQt5.QtCore import QObject, Qt
 
 from aqt.utils import showInfo, tooltip
 
@@ -77,7 +78,7 @@ class EditorExtension(Extension):
     ########################################
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
-
+    
     @editor_command("Ctrl+Alt+X, H")
     def emacs_mark_all(self):
         js = """
@@ -98,6 +99,31 @@ class EditorExtension(Extension):
         (function () {
             const selection = window.getSelection();
             selection.modify("move", "backward", "lineboundary");
+        })();
+        """
+        self.editor.web.eval(js)
+
+    # Cannot use Ctrl+A because it is bound to a command which selects
+    # everything. I tried using it with the hope that the shortcut will consume
+    # the event but it doesn't consume it.
+    @editor_command("Ctrl+Alt+A")
+    def emacs_beginning_of_line(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "backward", "lineboundary");
+        })();
+        """
+        self.editor.web.eval(js)
+
+    # This is just for symmetry with the above Ctrl+Alt+A. It is superfluous
+    # because Ctrl+E works in Anki by default the way it does in Emacs.
+    @editor_command("Ctrl+Alt+E")
+    def emacs_end_of_line(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "forward", "lineboundary");
         })();
         """
         self.editor.web.eval(js)
