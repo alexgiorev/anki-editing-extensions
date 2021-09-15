@@ -2,8 +2,8 @@ import json
 import html
 from collections import namedtuple
 
-from aqt import gui_hooks
-from PyQt5.QtWidgets import QInputDialog, QShortcut
+from aqt import gui_hooks, mw
+from PyQt5.QtWidgets import QInputDialog, QShortcut, QWidget
 from PyQt5.QtGui import QKeySequence, QKeyEvent
 from PyQt5.QtCore import QObject, Qt
 
@@ -43,6 +43,8 @@ class EditorExtension(Extension):
         self.widget = editor.widget
         self.bindings = bindings
         self.setup_shortcuts()
+        # setup extensions
+        self.emacs_setup()
     
     ########################################
     # codify_selection
@@ -79,6 +81,16 @@ class EditorExtension(Extension):
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
     
+    def emacs_modify_selection(self, direction, granularity):
+        alter = "extend" if self.emacs_mark_is_active else "move"
+        js = """
+        (function(){
+            const selection = window.getSelection();
+            selection.modify("%s", "%s", "%s");
+        })();
+        """ % (alter, direction, granularity)
+        self.editor.web.eval(js)
+    
     @editor_command("Ctrl+Alt+X, H")
     def emacs_mark_all(self):
         js = """
@@ -95,58 +107,21 @@ class EditorExtension(Extension):
     # the event but it doesn't consume it.
     @editor_command("Ctrl+Alt+A")
     def emacs_beginning_of_line(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "backward", "lineboundary");
-        })();
-        """
-        self.editor.web.eval(js)
-
-    # Cannot use Ctrl+A because it is bound to a command which selects
-    # everything. I tried using it with the hope that the shortcut will consume
-    # the event but it doesn't consume it.
-    @editor_command("Ctrl+Alt+A")
-    def emacs_beginning_of_line(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "backward", "lineboundary");
-        })();
-        """
-        self.editor.web.eval(js)
+        self.emacs_modify_selection("backward", "lineboundary")
 
     # This is just for symmetry with the above Ctrl+Alt+A. It is superfluous
     # because Ctrl+E works in Anki by default the way it does in Emacs.
     @editor_command("Ctrl+Alt+E")
     def emacs_end_of_line(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "forward", "lineboundary");
-        })();
-        """
-        self.editor.web.eval(js)
+        self.emacs_modify_selection("forward", "lineboundary")
 
     @editor_command("Alt+F")
     def emacs_forward_word(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "forward", "word");
-        })();
-        """
-        self.editor.web.eval(js)
+        self.emacs_modify_selection("forward", "word")
         
     @editor_command("Alt+B")
     def emacs_backward_word(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "backward", "word");
-        })();
-        """
-        self.editor.web.eval(js)
+        self.emacs_modify_selection("backward", "word")
 
 ########################################
 # AddCards
