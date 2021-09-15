@@ -74,7 +74,20 @@ class EditorExtension(Extension):
     def focus_first_field(self):
         self.focus_field(0)
 
-        
+    ########################################
+    # A bit of Emacs-like key-bindings, as many as possible without introducing
+    # too many conflicts.
+
+    @editor_command("Ctrl+Alt+X, H")
+    def emacs_mark_all(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "backward", "documentboundary");
+            selection.modify("extend", "forward", "documentboundary");
+        })();
+        """
+        self.editor.web.eval(js)
 
 ########################################
 # AddCards
