@@ -89,6 +89,19 @@ class EditorExtension(Extension):
         """
         self.editor.web.eval(js)
 
+    # Cannot use Ctrl+A because it is bound to a command which selects
+    # everything. I tried using it with the hope that the shortcut will consume
+    # the event but it doesn't consume it.
+    @editor_command("Ctrl+Alt+A")
+    def emacs_beginning_of_line(self):
+        js = """
+        (function () {
+            const selection = window.getSelection();
+            selection.modify("move", "backward", "lineboundary");
+        })();
+        """
+        self.editor.web.eval(js)
+
 ########################################
 # AddCards
 addcards_commands = {}
