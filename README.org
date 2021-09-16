@@ -8,6 +8,21 @@ Useful for when making a lot of programming related cards.
 If you select a text and invoke ~Ctrl+Alt+C~, it will "codify" it, ~like this~. If there is no selected text, pressing the shortcut will open a form which asks for the code. Pressing Enter will then insert the text you typed in the form ~codified~.
 * Storing/restoring the state of the Add dialog
 Often I'm writing a note for one context, but I get an idea for another. This necessitates changing the deck, note type, fields and tags for the new note, and then restoring them to their previous state. There is a set of commands, all bound to the prefix ~Ctrl+Alt+S~, which facilitate this. To store the current state, invoke ~Ctrl+Alt+S, S~ (that is ~Ctrl+Alt+S~ followed by ~S~). You can then change the state to whatever you like. To restore what you saved, invoke ~Ctrl+Alt+S, R~. If you want to at the same time store the state and clear the fields and tags, invoke ~Ctrl+Alt+S, C~ (the ~C~ stands for "Clear")
+* Emacs-like movement
+The extension enables moving using keys similar to those in Emacs. For example, ~M-f~ and ~M-b~ move to the next and previous words, respectively. However, the movement keys which normally begin with ~Ctrl~ in Emacs begin with ~Ctrl+Alt~ in the extension. So ~Ctrl+Alt+F~ moves to the next character, just like ~Ctrl+F~ in Emacs, and ~Ctrl+Alt+A~ moves to the beginning of the line, just like ~Ctrl+A~ in Emacs. Here is a list of all of the commands currently available and their corresponding Emacs commands:
+- ~Ctrl+Space~ :: ~set-mark-command~ (for more about the mark, see below)
+- ~Ctrl+Alt+X, H~ :: ~mark-whole-buffer~
+- ~Ctrl+Alt+A~ :: ~beginning-of-line~
+- ~Ctrl+Alt+E~ :: ~end-of-line~
+- ~Alt+F~ :: ~forward-word~
+- ~Alt+B~ :: ~backward-word~
+- ~Ctrl+Alt+F~ :: ~forward-char~
+- ~Ctrl+Alt+B~ :: ~backward-char~
+- ~Ctrl+Alt+G~ :: ~keyboard-quit~ (for more on quitting, see below)
+** The Mark
+This is my attempt to simulate ~transient-mark-mode~. The mark is only relevant for the Emacs-like movement commands provided here. *Any* other key immediately deactivates the mark. Invoking ~Ctrl+Alt+G~ also deactivates it. What may be confusing is that the mark can be active while a selection is still in place. For example, if you double click on some word, this will highlight it, but the mark won't be active, becauase it was not set with ~Ctrl+Space~. I may fix this mismatch soon.
+** Qutting
+For now quitting just deactivates the mark if it is active
 * Old cloze behavior
 With the newest version of Anki, the Cloze behavior has changed. Now you cannot use ~Ctrl+Shift+C~ to cloze in a note whose note type is not a Cloze type. This introduces friction in my workflow, so I rebound ~Ctrl+Shift+C~ to invoke the old behavior.
 * Focus on first field
