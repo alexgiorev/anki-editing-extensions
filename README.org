@@ -1,3 +1,7 @@
+I'm writing this extension mainly for myself, but I'm publishing it on the off chance someone may find it useful.
+
+*Warning* This extension will remove *ALL* key sequences whose first key begins with ~Ctrl+Alt~ from the window in which a note editor may find itself. For example, if notes are edited from the browser, it will remove the ~Ctrl+Alt+F~ key for Find & Replace and also the ~Ctrl+Alt+A~ key for selecting all of the notes. Those keys can easily be restored if Anki is restarted with the extension addon deactivated, nothing is permanent.
+
 * Installation
 If you want to install this, just create a subdirectory in the Anki addons directory and paste the ~__init__.py~ file there. The addon directory you can access through Tools -> Addons -> View Files.
 * Automatic first field prefix
