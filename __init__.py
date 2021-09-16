@@ -30,12 +30,17 @@ class Extension:
         be available (e.g. through menu items), it is just that the key
         sequences will no longer invoke them."""
         
+        # Make sure the keys are removed only once
+        if hasattr(self.editor.parentWindow, "removed_ctrl_alt_keys"):
+            return
         shortcuts = self.get_ctrl_alt_shortcuts()
         actions = self.get_ctrl_alt_actions()
         for shortcut in shortcuts:
             shortcut.setParent(None)
         for action in actions:
             action.setShortcuts([])
+        # Make sure the keys are removed only once
+        self.editor.parentWindow.removed_ctrl_alt_keys = True
     
     def get_ctrl_alt_shortcuts(self):
         """Find the shortcuts whose key sequence contains the Ctrl+Alt modifiers
@@ -247,6 +252,14 @@ class EditorExtension(Extension):
     def emacs_backward_word(self):
         self.emacs_modify_selection("backward", "word")
 
+    @editor_command("Ctrl+Alt+F")
+    def emacs_forward_char(self):
+        self.emacs_modify_selection("forward", "character")
+
+    @editor_command("Ctrl+Alt+B")
+    def emacs_backward_char(self):
+        self.emacs_modify_selection("backward", "character")
+        
 ########################################
 # AddCards
 addcards_commands = {}
