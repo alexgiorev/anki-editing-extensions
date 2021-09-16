@@ -180,6 +180,8 @@ class EditorExtension(Extension):
             (Qt.Key_Space, Qt.ControlModifier),
             (Qt.Key_Control, None),
             (Qt.Key_Alt, None),
+            (Qt.Key_F, Qt.ControlModifier | Qt.AltModifier),
+            (Qt.Key_B, Qt.ControlModifier | Qt.AltModifier),
         ]
         
         def __init__(self, ext):
@@ -215,7 +217,11 @@ class EditorExtension(Extension):
         js = """
         (function(){
             const selection = window.getSelection();
-            selection.collapseToEnd();
+            if (selection.focusOffset > selection.anchorOffset) {
+                selection.collapseToEnd();
+            } else {
+                selection.collapseToStart();
+            }
         })();
         """
         self.editor.web.eval(js)
