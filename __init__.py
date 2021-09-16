@@ -141,6 +141,7 @@ class EditorExtension(Extension):
     # too many conflicts.
     def emacs_setup(self):
         self.emacs_mark_is_active = False
+        self.emacs_first_move_after_mark = None
 
     @editor_command("Ctrl+Space")
     def emacs_activate_mark(self):
@@ -153,6 +154,7 @@ class EditorExtension(Extension):
             self.editor.parentWindow.installEventFilter(
                 self.emacs_mark_event_filter)
             self.emacs_mark_is_active = True
+            self.emacs_first_move_after_mark = None
 
     def emacs_deactivate_mark(self):
         # QUESTION A good idea to collapse the selection here?
@@ -212,20 +214,20 @@ class EditorExtension(Extension):
         })();
         """ % (alter, direction, granularity)
         self.editor.web.eval(js)
-
+        if self.emacs_mark_is_active and self.emacs_first_move_after_mark is None:
+            self.emacs_first_move_after_mark = direction
+        
     def emacs_collapse_selection(self):
-        js = """
-        (function(){
-            const selection = window.getSelection();
-            if (selection.focusOffset > selection.anchorOffset) {
-                selection.collapseToEnd();
-            } else {
-                selection.collapseToStart();
-            }
-        })();
-        """
+        # This is a heuristic approach based on the direction of the first
+        # movement command after the mark is set. I tried using
+        # selection.anchorOffset and selection.focusOffset but for some reason
+        # it didn't work.
+        js = ("window.getSelection().collapseToEnd()"
+              if self.emacs_first_move_after_mark == "forward"
+              else "window.getSelection().collapseToStart()")
         self.editor.web.eval(js)
-    
+        self.emacs_first_move_after_mark = None
+
     @editor_command("Ctrl+Alt+X, H")
     def emacs_mark_all(self):
         js = """
