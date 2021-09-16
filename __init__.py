@@ -158,11 +158,11 @@ class EditorExtension(Extension):
 
     def emacs_deactivate_mark(self):
         # QUESTION A good idea to collapse the selection here?
-        # self.emacs_collapse_selection()
-        self.editor.parentWindow.removeEventFilter(
-            self.emacs_mark_event_filter)
-        self.emacs_mark_event_filter = None
-        self.emacs_mark_is_active = False
+        if self.emacs_mark_is_active:
+            self.editor.parentWindow.removeEventFilter(
+                self.emacs_mark_event_filter)
+            self.emacs_mark_event_filter = None
+            self.emacs_mark_is_active = False
     
     class emacs_MarkEventFilter(QObject):
         """Listens for the events which deactivate mark. This is all events
@@ -267,6 +267,11 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Alt+B")
     def emacs_backward_char(self):
         self.emacs_modify_selection("backward", "character")
+
+    @editor_command("Ctrl+Alt+G")
+    def emacs_quit(self):
+        self.emacs_collapse_selection()
+        self.emacs_deactivate_mark()
         
 ########################################
 # AddCards
