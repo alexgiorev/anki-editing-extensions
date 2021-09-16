@@ -184,6 +184,7 @@ class EditorExtension(Extension):
             (Qt.Key_Alt, None),
             (Qt.Key_F, Qt.ControlModifier | Qt.AltModifier),
             (Qt.Key_B, Qt.ControlModifier | Qt.AltModifier),
+            (Qt.Key_G, Qt.ControlModifier | Qt.AltModifier),
         ]
         
         def __init__(self, ext):
