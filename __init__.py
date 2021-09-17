@@ -192,6 +192,8 @@ class EditorExtension(Extension):
             (Qt.Key_F, Qt.ControlModifier | Qt.AltModifier),
             (Qt.Key_B, Qt.ControlModifier | Qt.AltModifier),
             (Qt.Key_G, Qt.ControlModifier | Qt.AltModifier),
+            (Qt.Key_N, Qt.ControlModifier),
+            (Qt.Key_P, Qt.ControlModifier),
         ]
         
         def __init__(self, ext):
@@ -283,6 +285,15 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Y")
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
+
+    @editor_command("Ctrl+N")
+    def emacs_next_line(self):
+        self.emacs_modify_selection("forward", "line")
+
+    @editor_command("Ctrl+P")
+    def emacs_previous_line(self):
+        self.emacs_modify_selection("backward", "line")
+        
         
 ########################################
 # AddCards
