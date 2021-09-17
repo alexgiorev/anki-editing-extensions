@@ -12,7 +12,7 @@ Useful for when making a lot of programming related cards.
 If you select a text and invoke ~Ctrl+X, C~, it will "codify" it, ~like this~. If there is no selected text, pressing the shortcut will open a form which asks for the code. Pressing Enter will then insert the text you typed in the form ~codified~.
 * Storing/restoring the state of the Add dialog
 Often I'm writing a note for one context, but I get an idea for another. This necessitates changing the deck, note type, fields and tags for the new note, and then restoring them to their previous state. There is a set of commands, all bound to the prefix ~Ctrl+X, S~, which facilitate this (Here the ~S~ stands for "State"). To store the current state, invoke ~Ctrl+X, S, S~ (that is press ~Ctrl+X~ followed by ~S~ followed by ~S~ again). You can then change the state to whatever you like. To restore what you saved, invoke ~Ctrl+Alt+S, R~. If you want to at the same time store the state and clear the fields and tags, invoke ~Ctrl+X, S, C~ (the ~C~ stands for "Clear").
-* Emacs-like movement
+* Emacs-like commands
 The extension enables moving using keys similar to those in Emacs. Here is a list of all of the commands currently available and their corresponding Emacs commands:
 - ~Ctrl+Space~ :: ~set-mark-command~ (for more about the mark, see below)
 - ~Ctrl+X, H~ :: ~mark-whole-buffer~
@@ -23,6 +23,9 @@ The extension enables moving using keys similar to those in Emacs. Here is a lis
 - ~Ctrl+F~ :: ~forward-char~
 - ~Ctrl+B~ :: ~backward-char~
 - ~Ctrl+G~ :: ~keyboard-quit~ (for more on quitting, see below)
+- ~Ctrl+K~ :: ~kill-region~ (i.e. cut)
+- ~Ctrl+Y~ :: ~yank~ (i.e. paste)
+- ~Alt+W~ :: ~kill-ring-save~ (i.e copy)
 ** The Mark
 This is my attempt to simulate ~transient-mark-mode~. The mark is only relevant for the Emacs-like movement commands provided here. *Any* other key immediately deactivates the mark. Invoking ~Ctrl+G~ also deactivates it. What may be confusing is that the mark can be active while a selection is still in place. For example, if you double click on some word, this will highlight it, but the mark won't be active, becauase it was not set with ~Ctrl+Space~. I may fix this mismatch soon.
 ** Qutting
