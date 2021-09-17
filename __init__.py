@@ -3,9 +3,7 @@ import html
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
-from PyQt5.QtWidgets import QInputDialog, QShortcut, QWidget, QAction
-from PyQt5.QtGui import QKeySequence, QKeyEvent
-from PyQt5.QtCore import QObject, Qt
+from aqt.qt import *
 
 from aqt.utils import showInfo, tooltip
 
@@ -250,7 +248,7 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+G")
     def emacs_quit(self):
         self.emacs_collapse_selection()
-        self.emacs_deactivate_mark()
+        self.emacs_deactivate_mark()    
         
 ########################################
 # AddCards
