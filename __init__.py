@@ -16,63 +16,9 @@ class Extension:
     # shortcuts
     
     def setup_shortcuts(self):
-        self.remove_ctrl_alt()
-        # install custom shortcuts
         for key_seq_str, command_name in self.bindings.items():
             method = getattr(self, command_name)
             self.add_shortcut(key_seq_str, method)
-
-    def remove_ctrl_alt(self):
-        """I want to have available all key sequences whose first key has the
-        Ctrl and Alt modifiers. This function unbinds all existing shortcuts and
-        actions which are invoked by such key sequences, so that when I install
-        my own, there will be no conflicts. The actions in particular will still
-        be available (e.g. through menu items), it is just that the key
-        sequences will no longer invoke them."""
-        
-        # Make sure the keys are removed only once
-        if hasattr(self.editor.parentWindow, "removed_ctrl_alt_keys"):
-            return
-        shortcuts = self.get_ctrl_alt_shortcuts()
-        actions = self.get_ctrl_alt_actions()
-        for shortcut in shortcuts:
-            shortcut.setParent(None)
-        for action in actions:
-            action.setShortcuts([])
-        # Make sure the keys are removed only once
-        self.editor.parentWindow.removed_ctrl_alt_keys = True
-    
-    def get_ctrl_alt_shortcuts(self):
-        """Find the shortcuts whose key sequence contains the Ctrl+Alt modifiers
-        for the first key."""
-        result = []
-        all_shortcuts = self.editor.parentWindow.findChildren(QShortcut)
-        for shortcut in all_shortcuts:
-            key_seq = shortcut.key()
-            first_key = key_seq[0]
-            ctrl_alt = int(Qt.ControlModifier | Qt.AltModifier)
-            has_modifiers = first_key & ctrl_alt == ctrl_alt
-            if has_modifiers:
-                result.append(shortcut)
-        return result
-
-    def get_ctrl_alt_actions(self):
-        """Find the actions whose key sequence contains the Ctrl+Alt modifiers
-        for the first key."""        
-        result = []
-        all_actions = self.editor.parentWindow.findChildren(QAction)
-        for action in all_actions:
-            key_seq = action.shortcut()
-            try:
-                first_key = key_seq[0]
-            except IndexError:
-                first_key = None
-            if first_key is not None:
-                ctrl_alt = int(Qt.ControlModifier | Qt.AltModifier)
-                has_modifiers = first_key & ctrl_alt == ctrl_alt
-                if has_modifiers:
-                    result.append(action)
-        return result
 
     def add_shortcut(self, key_seq_str, func):
         key_seq = QKeySequence(key_seq_str)
@@ -101,14 +47,49 @@ class EditorExtension(Extension):
         self.editor = editor
         self.widget = editor.widget
         self.bindings = bindings
+        self.disable_keys()
         self.setup_shortcuts()
         # setup extensions
         self.emacs_setup()
+
+    ########################################
+    # disabling keys
     
+    def disable_keys(self):
+        # Attach as an attribute to prevent garbage collection.
+        self.disable_keys_event_filter = self.DisableKeysEventFilter()
+        # I'm not sure this will work long-term. It is a hack I arrived at after
+        # experimentation. Installing the event filter on the `self.editor.web`
+        # doesn't work, but on this subwidget it does. The result of the
+        # `findChildren` is a singleton list.
+        web_subwidget = self.editor.web.findChildren(QWidget)[0]
+        web_subwidget.installEventFilter(self.disable_keys_event_filter)
+    
+    class DisableKeysEventFilter(QObject):
+        disabled_keys = {
+            (Qt.Key_K, Qt.ControlModifier),
+            (Qt.Key_A, Qt.ControlModifier),
+            (Qt.Key_E, Qt.ControlModifier),
+            (Qt.Key_X, Qt.ControlModifier),
+            (Qt.Key_C, Qt.ControlModifier),
+            (Qt.Key_B, Qt.ControlModifier),
+            (Qt.Key_I, Qt.ControlModifier),
+            (Qt.Key_U, Qt.ControlModifier),
+        }
+
+        def eventFilter(self, obj, event):
+            if isinstance(event, QKeyEvent):
+                event_key = event.key()
+                event_modifiers = event.modifiers()
+                for dis_key, dis_modifiers in self.disabled_keys:
+                    if event_key == dis_key and event_modifiers == dis_modifiers:
+                        return True
+            return False
+        
     ########################################
     # codify_selection
     
-    @editor_command("Ctrl+Alt+C")
+    @editor_command("Ctrl+X, C")
     def codify_selection(self):
         # The arguments are [parent, title, label, text]
         web = self.editor.web
@@ -132,7 +113,7 @@ class EditorExtension(Extension):
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
 
-    @editor_command("Ctrl+Alt+1")
+    @editor_command("Ctrl+X, 1")
     def focus_first_field(self):
         self.focus_field(0)
 
@@ -229,7 +210,7 @@ class EditorExtension(Extension):
         self.editor.web.eval(js)
         self.emacs_first_move_after_mark = None
 
-    @editor_command("Ctrl+Alt+X, H")
+    @editor_command("Ctrl+X, H")
     def emacs_mark_all(self):
         js = """
         (function () {
@@ -240,19 +221,16 @@ class EditorExtension(Extension):
         """
         self.editor.web.eval(js)
 
-    # Cannot use Ctrl+A because it is bound to a command which selects
-    # everything. I tried using it with the hope that the shortcut will consume
-    # the event but it doesn't consume it.
-    @editor_command("Ctrl+Alt+A")
+    @editor_command("Ctrl+A")
     def emacs_beginning_of_line(self):
         self.emacs_modify_selection("backward", "lineboundary")
 
-    # This is just for symmetry with the above Ctrl+Alt+A. It is superfluous
-    # because Ctrl+E works in Anki by default the way it does in Emacs.
-    @editor_command("Ctrl+Alt+E")
+    # Even though Ctrl+E moves to the end of the line by default, the default
+    # does not work with the mark, so a custom command is needed.
+    @editor_command("Ctrl+E")
     def emacs_end_of_line(self):
         self.emacs_modify_selection("forward", "lineboundary")
-
+        
     @editor_command("Alt+F")
     def emacs_forward_word(self):
         self.emacs_modify_selection("forward", "word")
@@ -261,15 +239,15 @@ class EditorExtension(Extension):
     def emacs_backward_word(self):
         self.emacs_modify_selection("backward", "word")
 
-    @editor_command("Ctrl+Alt+F")
+    @editor_command("Ctrl+F")
     def emacs_forward_char(self):
         self.emacs_modify_selection("forward", "character")
 
-    @editor_command("Ctrl+Alt+B")
+    @editor_command("Ctrl+B")
     def emacs_backward_char(self):
         self.emacs_modify_selection("backward", "character")
 
-    @editor_command("Ctrl+Alt+G")
+    @editor_command("Ctrl+G")
     def emacs_quit(self):
         self.emacs_collapse_selection()
         self.emacs_deactivate_mark()
@@ -305,7 +283,7 @@ class AddCardsExtension(Extension):
         gui_hooks.add_cards_did_add_note.append(
             self.prefix_add_cards_did_add_note)
 
-    @addcards_command("Ctrl+Alt+P")
+    @addcards_command("Ctrl+X, P")
     def prefix_first_field(self):
         old = self.prefix
         if old is None: old = ""
@@ -360,7 +338,7 @@ class AddCardsExtension(Extension):
                                      "notetype_id deck_id fields tags")
         self.state = None
     
-    @addcards_command("Ctrl+Alt+S, S")
+    @addcards_command("Ctrl+X, S, S")
     def state_store(self):
         notetype_id = self.addcards.notetype_chooser.selected_notetype_id
         deck_id = self.addcards.deck_chooser.selected_deck_id
@@ -369,7 +347,7 @@ class AddCardsExtension(Extension):
         tags = note.tags[:]
         self.state = self.state_type(notetype_id, deck_id, fields, tags)
 
-    @addcards_command("Ctrl+Alt+S, R")
+    @addcards_command("Ctrl+X, S, R")
     def state_restore(self):
         if self.state is None:
             tooltip("No state is currently stored")
@@ -384,7 +362,7 @@ class AddCardsExtension(Extension):
         self.state_update_tags_UI()
         self.focus_field(0)
 
-    @addcards_command("Ctrl+Alt+S, C")
+    @addcards_command("Ctrl+X, S, C")
     def state_store_and_clear(self):
         self.state_store()
         self.state_clear_fields()
