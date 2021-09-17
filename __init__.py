@@ -14,13 +14,41 @@ class Extension:
     # shortcuts
     
     def setup_shortcuts(self):
+        self._shortcuts = self.editor.parentWindow.findChildren(QShortcut)
+        self._actions = self.editor.parentWindow.findChildren(QAction)
         for key_seq_str, command_name in self.bindings.items():
+            key_seq = QKeySequence(key_seq_str)
+            self._maybe_disable_action_or_shortcut(key_seq)
             method = getattr(self, command_name)
-            self.add_shortcut(key_seq_str, method)
+            shortcut = QShortcut(key_seq, self.widget, activated=method)
+        # Mark that we have already disabled actions and shortcuts for this
+        # window. Use a deliberately long identifier to avoid possible conflicts
+        self.editor.parentWindow._extensions_disabled_shortcuts_and_actions = True
 
-    def add_shortcut(self, key_seq_str, func):
-        key_seq = QKeySequence(key_seq_str)
-        shortcut = QShortcut(key_seq_str, self.widget, activated=func)
+    def _maybe_disable_action_or_shortcut(self, key_seq):
+        if hasattr(self.editor.parentWindow,
+                   "_extensions_disabled_shortcuts_and_actions"):
+            return
+        # Assumes that `self._shortucts` and `self._actions` are set
+        for shortcut in self._shortcuts:
+            if self.qkeyseqs_equal(shortcut.key(), key_seq):
+                # remove the shortcut
+                shortcut.setParent(None)
+        for action in self._actions:
+            if self.qkeyseqs_equal(action.shortcut(), key_seq):
+                # disable the action's key sequence
+                action.setShortcuts([])
+
+    @staticmethod
+    def qkeyseqs_equal(qkey_seq1, qkey_seq2):
+        if qkey_seq1.count() != qkey_seq2.count():
+            return False
+        count = qkey_seq1.count()
+        for i in range(count):
+            key1, key2 = qkey_seq1[i], qkey_seq2[i]
+            if key1 ^ key2:
+                return False
+        return True
 
     ########################################
         
