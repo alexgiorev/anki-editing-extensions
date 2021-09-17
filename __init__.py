@@ -248,7 +248,20 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+G")
     def emacs_quit(self):
         self.emacs_collapse_selection()
-        self.emacs_deactivate_mark()    
+        self.emacs_deactivate_mark()
+
+    @editor_command("Ctrl+K")
+    def emacs_kill_region(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.Cut)
+
+    @editor_command("Alt+W")
+    def emacs_copy(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.Copy)
+        self.emacs_collapse_selection()
+
+    @editor_command("Ctrl+Y")
+    def emacs_yank(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.Paste)
         
 ########################################
 # AddCards
