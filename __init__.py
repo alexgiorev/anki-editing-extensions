@@ -210,14 +210,7 @@ class EditorExtension(Extension):
 
     @editor_command("Ctrl+X, H")
     def emacs_mark_all(self):
-        js = """
-        (function () {
-            const selection = window.getSelection();
-            selection.modify("move", "backward", "documentboundary");
-            selection.modify("extend", "forward", "documentboundary");
-        })();
-        """
-        self.editor.web.eval(js)
+        self.editor.web.triggerPageAction(QWebEnginePage.SelectAll)
 
     @editor_command("Ctrl+A")
     def emacs_beginning_of_line(self):
