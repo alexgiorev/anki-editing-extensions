@@ -245,6 +245,25 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Y")
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
+
+    ########################################
+    # misc
+
+    # Since now I'm using Ctrl+B for something different, I want to change the
+    # bold key. But for symmetry I also want to change the italic and underline
+    # keys.
+    @editor_command("Ctrl+Alt+B")
+    def toggle_bold(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.ToggleBold)
+
+    @editor_command("Ctrl+Alt+I")
+    def toggle_italic(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.ToggleItalic)
+
+    @editor_command("Ctrl+Alt+U")
+    def toggle_underline(self):
+        self.editor.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
+        
         
 ########################################
 # AddCards
