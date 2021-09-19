@@ -139,7 +139,7 @@ class EditorExtension(Extension):
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
 
-    @editor_command("Ctrl+X, 1")
+    @editor_command("Ctrl+Alt+1")
     def focus_first_field(self):
         self.focus_field(0)
 
