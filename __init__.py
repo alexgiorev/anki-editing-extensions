@@ -395,6 +395,16 @@ class AddCardsExtension(Extension):
     def state_update_tags_UI(self):
         note = self.editor.note
         self.editor.tags.setText(note.string_tags().strip())
+
+    ########################################
+    # misc
+    @addcards_command("Ctrl+Alt+N")
+    def change_notetype(self):
+        self.addcards.notetype_chooser.choose_notetype()
+
+    @addcards_command("Ctrl+Alt+D")
+    def change_deck(self):
+        self.addcards.deck_chooser.choose_deck()
         
 ########################################
 # main hooks
