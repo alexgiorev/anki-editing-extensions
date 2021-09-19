@@ -16,18 +16,17 @@ class Extension:
     def setup_shortcuts(self):
         self._shortcuts = self.editor.parentWindow.findChildren(QShortcut)
         self._actions = self.editor.parentWindow.findChildren(QAction)
-        for key_seq_str, command_name in self.bindings.items():
-            key_seq = QKeySequence(key_seq_str)
+        for command_name, key_seq in self.bindings.items():
             self._maybe_disable_action_or_shortcut(key_seq)
             method = getattr(self, command_name)
             shortcut = QShortcut(key_seq, self.widget, activated=method)
         # Mark that we have already disabled actions and shortcuts for this
         # window. Use a deliberately long identifier to avoid possible conflicts
-        self.editor.parentWindow._extensions_disabled_shortcuts_and_actions = True
+        self.editor.parentWindow._extension_did_disable_keys = True
 
     def _maybe_disable_action_or_shortcut(self, key_seq):
         if hasattr(self.editor.parentWindow,
-                   "_extensions_disabled_shortcuts_and_actions"):
+                   "_extension_did_disable_keys"):
             return
         # Assumes that `self._shortucts` and `self._actions` are set
         for shortcut in self._shortcuts:
@@ -64,7 +63,7 @@ def editor_command(key_seq_str):
     def decorator(func):
         # Bind to the function name instead of the function so that
         # different methods are created for different instances
-        editor_commands[key_seq_str] = func.__name__
+        editor_commands[func.__name__] = QKeySequence(key_seq_str)
         return func
     return decorator
 
@@ -263,8 +262,7 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Alt+U")
     def toggle_underline(self):
         self.editor.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
-        
-        
+    
 ########################################
 # AddCards
 addcards_commands = {}
@@ -272,7 +270,7 @@ def addcards_command(key_seq_str):
     def decorator(func):
         # Bind to the function name instead of the function so that
         # different methods are created for different instances
-        addcards_commands[key_seq_str] = func.__name__
+        addcards_commands[func.__name__] = QKeySequence(key_seq_str)
         return func
     return decorator
 
