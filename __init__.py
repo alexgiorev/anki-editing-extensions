@@ -12,32 +12,33 @@ from aqt.utils import showInfo, tooltip
 class Extension:
     ########################################
     # shortcuts
-    
+
     def setup_shortcuts(self):
-        self._shortcuts = self.editor.parentWindow.findChildren(QShortcut)
-        self._actions = self.editor.parentWindow.findChildren(QAction)
+        self.disable_used_keys()
         for command_name, key_seq in self.bindings.items():
-            self._maybe_disable_action_or_shortcut(key_seq)
             method = getattr(self, command_name)
             shortcut = QShortcut(key_seq, self.widget, activated=method)
+
+    def disable_used_keys(self):
+        attr = f"{self}_did_disable_used_keys"
+        if hasattr(self.editor.parentWindow, attr):
+            # Keys already disabled
+            return
+        shortcuts = self.editor.parentWindow.findChildren(QShortcut)
+        actions = self.editor.parentWindow.findChildren(QAction)
+        for key_seq in self.bindings.values():
+            for shortcut in shortcuts:
+                if self.qkeyseqs_equal(shortcut.key(), key_seq):
+                    # remove the shortcut
+                    shortcut.setParent(None)
+            for action in actions:
+                if self.qkeyseqs_equal(action.shortcut(), key_seq):
+                    # disable the action's key sequence
+                    action.setShortcuts([])            
         # Mark that we have already disabled actions and shortcuts for this
         # window. Use a deliberately long identifier to avoid possible conflicts
-        self.editor.parentWindow._extension_did_disable_keys = True
-
-    def _maybe_disable_action_or_shortcut(self, key_seq):
-        if hasattr(self.editor.parentWindow,
-                   "_extension_did_disable_keys"):
-            return
-        # Assumes that `self._shortucts` and `self._actions` are set
-        for shortcut in self._shortcuts:
-            if self.qkeyseqs_equal(shortcut.key(), key_seq):
-                # remove the shortcut
-                shortcut.setParent(None)
-        for action in self._actions:
-            if self.qkeyseqs_equal(action.shortcut(), key_seq):
-                # disable the action's key sequence
-                action.setShortcuts([])
-
+        setattr(self.editor.parentWindow, attr, True)
+        
     @staticmethod
     def qkeyseqs_equal(qkey_seq1, qkey_seq2):
         if qkey_seq1.count() != qkey_seq2.count():
