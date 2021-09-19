@@ -147,73 +147,25 @@ class EditorExtension(Extension):
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
     def emacs_setup(self):
-        self.emacs_mark_is_active = False
+        self.emacs_extend_selection_next_time = False
         self.emacs_first_move_after_mark = None
 
+    @property
+    def emacs_mark_is_active(self):
+        return (self.emacs_extend_selection_next_time or
+                self.editor.web.hasSelection())
+        
     @editor_command("Ctrl+Space")
     def emacs_activate_mark(self):
         if self.emacs_mark_is_active:
             self.emacs_collapse_selection()
-        else:
-            # the event filter must be attached as an attribute to prevent garbage
-            # collection which will render it useless
-            self.emacs_mark_event_filter = self.emacs_MarkEventFilter(self)
-            self.editor.parentWindow.installEventFilter(
-                self.emacs_mark_event_filter)
-            self.emacs_mark_is_active = True
-            self.emacs_first_move_after_mark = None
+        self.emacs_first_move_after_mark = None
+        self.emacs_extend_selection_next_time = True
 
     def emacs_deactivate_mark(self):
-        # QUESTION A good idea to collapse the selection here?
         if self.emacs_mark_is_active:
-            self.editor.parentWindow.removeEventFilter(
-                self.emacs_mark_event_filter)
-            self.emacs_mark_event_filter = None
-            self.emacs_mark_is_active = False
-    
-    class emacs_MarkEventFilter(QObject):
-        """Listens for the events which deactivate mark. This is all events
-        which are not the keys of the Emacs-like movement commands set up
-        here. Installed when the mark is activated, and uninstalled when it is
-        deactivated."""
-        
-        # A list of (KEY, MODIFIERS) pairs which define the keys that do not
-        # automatically deactivate the mark. This should be the keys bound to
-        # the Emacs-like movement commands. Any other key will deactivate the
-        # mark.
-        safe_keys = [
-            (Qt.Key_A, Qt.ControlModifier | Qt.AltModifier),
-            (Qt.Key_E, Qt.ControlModifier | Qt.AltModifier),
-            (Qt.Key_F, Qt.AltModifier),
-            (Qt.Key_B, Qt.AltModifier),
-            (Qt.Key_Space, Qt.ControlModifier),
-            (Qt.Key_Control, None),
-            (Qt.Key_Alt, None),
-            (Qt.Key_F, Qt.ControlModifier | Qt.AltModifier),
-            (Qt.Key_B, Qt.ControlModifier | Qt.AltModifier),
-            (Qt.Key_G, Qt.ControlModifier | Qt.AltModifier),
-            (Qt.Key_N, Qt.ControlModifier),
-            (Qt.Key_P, Qt.ControlModifier),
-        ]
-        
-        def __init__(self, ext):
-            super().__init__()
-            self.ext = ext
-
-        def safe_key(self, keyEvent):
-            """Assumes that `keyEvent` is a QKeyEvent"""
-            for key, modifiers in self.safe_keys:
-                key_safe = keyEvent.key() == key
-                modifiers_safe = (modifiers is None or
-                                  keyEvent.modifiers() & modifiers)
-                if key_safe and modifiers_safe:
-                    return True
-            return False
-            
-        def eventFilter(self, obj, event):
-            if isinstance(event, QKeyEvent) and not self.safe_key(event):
-                self.ext.emacs_deactivate_mark()
-            return False
+            self.emacs_collapse_selection()
+            self.emacs_extend_selection_next_time = False
 
     def emacs_modify_selection(self, direction, granularity):
         alter = "extend" if self.emacs_mark_is_active else "move"
@@ -226,6 +178,7 @@ class EditorExtension(Extension):
         self.editor.web.eval(js)
         if self.emacs_mark_is_active and self.emacs_first_move_after_mark is None:
             self.emacs_first_move_after_mark = direction
+        self.emacs_extend_selection_next_time = False
         
     def emacs_collapse_selection(self):
         # This is a heuristic approach based on the direction of the first
@@ -268,9 +221,16 @@ class EditorExtension(Extension):
     def emacs_backward_char(self):
         self.emacs_modify_selection("backward", "character")
 
+    @editor_command("Ctrl+N")
+    def emacs_next_line(self):
+        self.emacs_modify_selection("forward", "line")
+
+    @editor_command("Ctrl+P")
+    def emacs_previous_line(self):
+        self.emacs_modify_selection("backward", "line")
+        
     @editor_command("Ctrl+G")
     def emacs_quit(self):
-        self.emacs_collapse_selection()
         self.emacs_deactivate_mark()
 
     @editor_command("Ctrl+K")
@@ -285,15 +245,6 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Y")
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
-
-    @editor_command("Ctrl+N")
-    def emacs_next_line(self):
-        self.emacs_modify_selection("forward", "line")
-
-    @editor_command("Ctrl+P")
-    def emacs_previous_line(self):
-        self.emacs_modify_selection("backward", "line")
-        
         
 ########################################
 # AddCards
