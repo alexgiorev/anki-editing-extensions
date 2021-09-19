@@ -4,6 +4,13 @@ I'm writing this extension mainly for myself, but I'm publishing it on the off c
 If you want to install this, just create a subdirectory in the Anki addons directory and paste the ~__init__.py~ file there. The addon directory you can access through Tools -> Addons -> View Files.
 * How to read the key sequences used here
 I'm using Emacs-like key sequences to invoke my commands. Some commands are invoked by more than one keys pressed in succession. The key sequence ~A, B, C~ means that you should press the key ~A~ followed by the key ~B~ followed by the key ~C~. So ~Ctrl+X, S, C~ means that you should first press ~Ctrl+X~ then ~S~ and then ~C~.
+* Conflicting shortcuts
+Since some default shortcuts conflict with keys I want to use for my own commands, I've rebound or disabled them. Here is the list of rebound keys:
+- ~Ctrl+N~ (change note type) is rebound to ~Ctrl+Alt+N~
+- ~Ctrl+D~ (change deck) is rebound to ~Ctrl+Alt+D~
+- ~Ctrl+B~ (bold) is rebound to ~Ctrl+Alt+B~
+- ~Ctrl+I~ (italic) is rebound to ~Ctrl+Alt+I~
+- ~Ctrl+U~ (underline) is rebound to ~Ctrl+Alt+U~
 * Automatic first field prefix
 Press ~Ctrl+X, P~ to specify the prefix. Thereafter it will be automatically inserted in the first field of each new note. To stop this, just invoke ~Ctrl+X, P~ again and empty the form.
 * Codify selection
