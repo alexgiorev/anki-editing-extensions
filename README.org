@@ -37,7 +37,7 @@ The extension enables moving using keys similar to those in Emacs. Here is a lis
 This is my attempt to simulate ~transient-mark-mode~. The mark is only relevant for the Emacs-like movement commands provided here. *Any* other key immediately deactivates the mark. Invoking ~Ctrl+G~ also deactivates it. What may be confusing is that the mark can be active while a selection is still in place. For example, if you double click on some word, this will highlight it, but the mark won't be active, becauase it was not set with ~Ctrl+Space~. I may fix this mismatch soon.
 ** Qutting
 For now quitting just deactivates the mark if it is active
-* Old cloze behavior
-With the newest version of Anki, the Cloze behavior has changed. Now you cannot use ~Ctrl+Shift+C~ to cloze in a note whose note type is not a Cloze type. This introduces friction in my workflow, so I rebound ~Ctrl+Shift+C~ to invoke the old behavior.
+* Preference to Basic and Cloze 
+Practically speaking, ~Basic~ and ~Cloze~ are the only models I'm using. A workflow that suits this is to have ~Basic~ as the default when a new note is being edited, and to switch to the ~Cloze~ type only when invoking the Cloze key (~Ctrl+Shift+C~).
 * Focus on first field
 The ~Ctrl+X, 1~ key is bound to a command which focuses on the first field. I frequently find this useful, e.g. after changing the tags with ~Ctrl+Shift+T~.
