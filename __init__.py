@@ -1,11 +1,13 @@
 import json
 import html
+import re
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
 from aqt.qt import *
 
-from aqt.utils import showInfo, tooltip
+from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
+    
 
 ########################################
 # Extension base class
@@ -284,6 +286,7 @@ class AddCardsExtension(Extension):
         # extensions setup
         self.prefix_setup()
         self.state_setup()
+        self.typeauto_setup()
         
     ########################################
     # prefix_first_field
@@ -336,11 +339,50 @@ class AddCardsExtension(Extension):
         self.prefix_load()
 
     ########################################
-    # Use the old Cloze behavior, I don't like the new one
+    # Notetype automation. Since I'm practically only using the Basic and Cloze
+    # model, I want Basic to be default and Cloze to be switched to when
+    # invoking the clozing key.
+
+    def typeauto_setup(self):
+        gui_hooks.add_cards_did_add_note.append(
+            self.typeauto_switch_to_basic)
     
     @addcards_command("Ctrl+Shift+C")
-    def old_cloze(self):
-        self.editor.onCloze()
+    def typeauto_cloze(self):
+        self.typeauto_onCloze()
+
+    def typeauto_onCloze(self):
+        # find the highest existing cloze
+        highest = 0
+        for name, val in list(self.editor.note.items()):
+            m = re.findall(r"\{\{c(\d+)::", val)
+            if m:
+                highest = max(highest, sorted([int(x) for x in m])[-1])
+        # reuse last?
+        if not KeyboardModifiersPressed().alt:
+            highest += 1
+        # must start at 1
+        highest = max(1, highest)
+        js = "wrap('{{c%d::', '}}');" % highest 
+        self.editor.web.evalWithCallback(js, self.typeauto_onCloze_callback)
+
+    def typeauto_onCloze_callback(self, *args):
+        # change the model
+        cloze_id = mw.col.models.id_for_name("Cloze")
+        self.addcards.notetype_chooser.selected_notetype_id = cloze_id
+        # After changing the model, the point will be at the beginning, but I
+        # want it after the closing bracket of the first cloze. This moves point
+        # after this closing bracket. It will fail if }} is used before the
+        # actual closing bracket, but the current approach seems to be a good
+        # enough heuristic.
+        self.editor.web.findText("}}")
+        self.editor.web.findText("")
+        self.editor.web.eval(
+            """window.getSelection().modify("move", "right", "character");""")
+        
+    def typeauto_switch_to_basic(self, *args):
+        basic_id = mw.col.models.id_for_name("Basic")
+        self.addcards.notetype_chooser.selected_notetype_id = basic_id
 
     ########################################
     # state management
