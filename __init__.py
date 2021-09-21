@@ -378,7 +378,7 @@ class AddCardsExtension(Extension):
         self.editor.web.findText("}}")
         self.editor.web.findText("")
         self.editor.web.eval(
-            """window.getSelection().modify("move", "right", "character");""")
+            """window.getSelection().collapseToEnd()""")
         
     def typeauto_switch_to_basic(self, *args):
         basic_id = mw.col.models.id_for_name("Basic")
