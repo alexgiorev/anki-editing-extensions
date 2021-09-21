@@ -389,7 +389,8 @@ class AddCardsExtension(Extension):
     def state_setup(self):
         self.state_type = namedtuple("AddCardsState",
                                      "notetype_id deck_id fields tags")
-        self.state = None
+        self.state_current = None
+        self.
     
     @addcards_command("Ctrl+X, S, S")
     def state_store(self):
@@ -398,14 +399,14 @@ class AddCardsExtension(Extension):
         note = self.editor.note
         fields = note.fields[:]
         tags = note.tags[:]
-        self.state = self.state_type(notetype_id, deck_id, fields, tags)
+        self.state_current = self.state_type(notetype_id, deck_id, fields, tags)
 
     @addcards_command("Ctrl+X, S, R")
     def state_restore(self):
-        if self.state is None:
+        if self.state_current is None:
             tooltip("No state is currently stored")
             return
-        notetype_id, deck_id, fields, tags = self.state
+        notetype_id, deck_id, fields, tags = self.state_current
         self.addcards.notetype_chooser.selected_notetype_id = notetype_id
         self.addcards.deck_chooser.selected_deck_id = deck_id
         note = self.editor.note
