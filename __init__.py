@@ -119,7 +119,6 @@ class EditorExtension(Extension):
     
     @editor_command("Ctrl+X, C")
     def codify_selection(self):
-        # The arguments are [parent, title, label, text]
         web = self.editor.web
         selected_text = web.selectedText()
         # after this IF statement, CODIFIED will store the text to insert
