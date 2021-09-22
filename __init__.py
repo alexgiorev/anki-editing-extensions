@@ -285,10 +285,10 @@ class AddCardsExtension(Extension):
         self.bindings = bindings
         self.setup_shortcuts()
         # extensions setup
-        self.prefix_setup()
         self.state_setup()
         self.typeauto_setup()
-        
+        self.prefix_setup()
+
     ########################################
     # prefix_first_field
 
