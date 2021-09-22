@@ -393,7 +393,7 @@ class AddCardsExtension(Extension):
                      "user_data", "state_saved_states.json"))
     
     def state_setup(self):
-        self.state_current = None
+        self.state_stored = None
         self.state_read_saved_states()
 
     def state_get_current(self):
@@ -409,14 +409,14 @@ class AddCardsExtension(Extension):
                 
     @addcards_command("Ctrl+X, S, S")
     def state_store(self):
-        self.state_current = self.state_get_current()
+        self.state_stored = self.state_get_current()
 
     @addcards_command("Ctrl+X, S, R")
     def state_restore(self):
-        if self.state_current is None:
+        if self.state_stored is None:
             tooltip("No state is currently stored")
             return
-        self.state_set(self.state_current)
+        self.state_set(self.state_stored)
         
     def state_set(self, s):
         self.addcards.notetype_chooser.selected_notetype_id = s["notetype_id"]
@@ -473,8 +473,13 @@ class AddCardsExtension(Extension):
             buttons=[],
             title="Choose state",
             accept="Choose",
-            cancel=True)
-        tooltip(f"You chose \"{study_deck.name}\"")
+            cancel=True,
+            parent=self.addcards)
+        choice = study_deck.name
+        if choice is not None:
+            state = self.state_saved_states[choice]
+            self.state_store()
+            self.state_set(state)
 
     @addcards_command("Ctrl+X, S, M")
     def state_remove_saved_state(self):
