@@ -1,10 +1,12 @@
 import json
 import html
 import re
+import os.path
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
 from aqt.qt import *
+from aqt.studydeck import StudyDeck
 
 from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
     
@@ -386,36 +388,46 @@ class AddCardsExtension(Extension):
     ########################################
     # state management
 
-    def state_setup(self):
-        self.state_type = namedtuple("AddCardsState",
-                                     "notetype_id deck_id fields tags")
-        self.state_current = None
-        self.
+    STATE_SAVED_STATES_PATH = os.path.realpath(
+        os.path.join(os.path.dirname(__file__),
+                     "user_data", "state_saved_states.json"))
     
-    @addcards_command("Ctrl+X, S, S")
-    def state_store(self):
+    def state_setup(self):
+        self.state_current = None
+        self.state_read_saved_states()
+
+    def state_get_current(self):
         notetype_id = self.addcards.notetype_chooser.selected_notetype_id
         deck_id = self.addcards.deck_chooser.selected_deck_id
         note = self.editor.note
         fields = note.fields[:]
         tags = note.tags[:]
-        self.state_current = self.state_type(notetype_id, deck_id, fields, tags)
+        return dict(notetype_id=notetype_id,
+                    deck_id=deck_id,
+                    fields=fields,
+                    tags=tags)
+                
+    @addcards_command("Ctrl+X, S, S")
+    def state_store(self):
+        self.state_current = self.state_get_current()
 
     @addcards_command("Ctrl+X, S, R")
     def state_restore(self):
         if self.state_current is None:
             tooltip("No state is currently stored")
             return
-        notetype_id, deck_id, fields, tags = self.state_current
-        self.addcards.notetype_chooser.selected_notetype_id = notetype_id
-        self.addcards.deck_chooser.selected_deck_id = deck_id
+        self.state_set(self.state_current)
+        
+    def state_set(self, s):
+        self.addcards.notetype_chooser.selected_notetype_id = s["notetype_id"]
+        self.addcards.deck_chooser.selected_deck_id = s["deck_id"]
         note = self.editor.note
-        note.fields = fields[:]
-        note.tags = tags[:]
+        note.fields = s["fields"][:]
+        note.tags = s["tags"][:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        self.focus_field(0)
-
+        self.focus_field(0)        
+        
     @addcards_command("Ctrl+X, S, C")
     def state_store_and_clear(self):
         self.state_store()
@@ -438,6 +450,44 @@ class AddCardsExtension(Extension):
         note = self.editor.note
         self.editor.tags.setText(note.string_tags().strip())
 
+    @addcards_command("Ctrl+X, S, V")
+    def state_save(self):
+        name, accepted = QInputDialog.getText(None, "", "Enter name: ")
+        if not accepted:
+            return
+        if name in self.state_saved_states:
+            tooltip(f'A state named "{name}" already exists')
+            return
+        current_state = self.state_get_current()
+        self.state_saved_states[name] = current_state
+        self.state_write_states()
+
+    @addcards_command("Ctrl+X, S, L")
+    def state_load_saved_state(self):
+        if not self.state_saved_states:
+            tooltip("No states are saved")
+            return
+        study_deck = StudyDeck(
+            mw,
+            names=lambda:sorted(self.state_saved_states),
+            buttons=[],
+            title="Choose state",
+            accept="Choose",
+            cancel=True)
+        tooltip(f"You chose \"{study_deck.name}\"")
+
+    @addcards_command("Ctrl+X, S, M")
+    def state_remove_saved_state(self):
+        raise NotImplementedError
+    
+    def state_read_saved_states(self):
+        with open(self.STATE_SAVED_STATES_PATH) as f:
+            self.state_saved_states = json.load(f)
+
+    def state_write_states(self):
+        with open(self.STATE_SAVED_STATES_PATH, "w") as f:
+            json.dump(self.state_saved_states, f)
+        
     ########################################
     # misc
     @addcards_command("Ctrl+Alt+N")
