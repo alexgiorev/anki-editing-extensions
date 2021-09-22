@@ -451,10 +451,45 @@ class AddCardsExtension(Extension):
         self.editor.tags.setText(note.string_tags().strip())
 
     @addcards_command("Ctrl+X, S, V")
-    def state_save(self):
-        name, accepted = QInputDialog.getText(None, "", "Enter name: ")
-        if not accepted:
-            return
+    def state_show_saved(self):
+        choose_button = QPushButton("Choose")
+        qconnect(choose_button.clicked, self.state_onChoose)
+        choose_button.setDefault(True)
+        save_button = QPushButton("Save")
+        qconnect(save_button.clicked, self.state_onSave)
+        remove_button = QPushButton("Remove")
+        qconnect(remove_button.clicked, self.state_onRemove)
+        # First create instance and then initialize so that buttons can access
+        # the instance
+        self.study_deck = StudyDeck.__new__(StudyDeck)
+        StudyDeck.__init__(
+            self.study_deck,
+            mw,
+            names=lambda:sorted(self.state_saved_states),
+            buttons=[choose_button, save_button, remove_button],
+            title="Choose state",
+            cancel=True,
+            parent=self.addcards)
+
+    def state_onChoose(self):
+        self.study_deck.accept()
+        choice = self.study_deck.name
+        state = self.state_saved_states[choice]
+        self.state_store()
+        self.state_set(state)
+        self.study_deck = None
+        
+    def state_onSave(self):
+        self.study_deck.reject()
+        name = self.study_deck.form.filter.text()
+        self.state_save_current(name)
+
+    def state_onRemove(self):
+        self.study_deck.accept()
+        choice = self.study_deck.name
+        del self.state_saved_states[choice]
+    
+    def state_save_current(self, name):
         if name in self.state_saved_states:
             tooltip(f'A state named "{name}" already exists')
             return
@@ -462,29 +497,6 @@ class AddCardsExtension(Extension):
         self.state_saved_states[name] = current_state
         self.state_write_states()
 
-    @addcards_command("Ctrl+X, S, L")
-    def state_load_saved_state(self):
-        if not self.state_saved_states:
-            tooltip("No states are saved")
-            return
-        study_deck = StudyDeck(
-            mw,
-            names=lambda:sorted(self.state_saved_states),
-            buttons=[],
-            title="Choose state",
-            accept="Choose",
-            cancel=True,
-            parent=self.addcards)
-        choice = study_deck.name
-        if choice is not None:
-            state = self.state_saved_states[choice]
-            self.state_store()
-            self.state_set(state)
-
-    @addcards_command("Ctrl+X, S, M")
-    def state_remove_saved_state(self):
-        raise NotImplementedError
-    
     def state_read_saved_states(self):
         with open(self.STATE_SAVED_STATES_PATH) as f:
             self.state_saved_states = json.load(f)
