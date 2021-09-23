@@ -322,7 +322,7 @@ class AddCardsExtension(Extension):
             note = self.editor.note
             if not note.fields[0]:
                 note.fields[0] = prefix
-            elif note.fields[0].startswith(old):
+            elif old is not None and note.fields[0].startswith(old):
                 note.fields[0] = note.fields[0].replace(old, prefix, 1)
             else:
                 note.fields[0] = prefix + note.fields[0]
@@ -402,10 +402,12 @@ class AddCardsExtension(Extension):
         note = self.editor.note
         fields = note.fields[:]
         tags = note.tags[:]
+        prefix = "" if self.prefix is None else self.prefix
         return dict(notetype_id=notetype_id,
                     deck_id=deck_id,
                     fields=fields,
-                    tags=tags)
+                    tags=tags,
+                    prefix=prefix,)
                 
     @addcards_command("Ctrl+X, S, S")
     def state_store(self):
@@ -427,13 +429,15 @@ class AddCardsExtension(Extension):
         note.tags = s["tags"][:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        self.focus_field(0)        
+        self.prefix_change(s["prefix"]); self.prefix_load()
+        self.focus_field(0)
         
     @addcards_command("Ctrl+X, S, C")
     def state_store_and_clear(self):
         self.state_store()
         self.state_clear_fields()
         self.state_clear_tags()
+        self.prefix_change(None)
         # focus on the first field
         self.focus_field(0)
         
