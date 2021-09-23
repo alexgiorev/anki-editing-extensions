@@ -1,5 +1,4 @@
-I'm writing this extension mainly for myself, but I'm publishing it on the off chance someone may find it useful.
-
+I'm writing this extension mainly for myself, but I'm publishing it in case someone finds it useful.
 * Installation
 If you want to install this, just create a subdirectory in the Anki addons directory and paste the ~__init__.py~ file there. The addon directory you can access through Tools -> Addons -> View Files.
 * How to read the key sequences used here
