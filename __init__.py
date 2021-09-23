@@ -257,17 +257,29 @@ class EditorExtension(Extension):
     # Since now I'm using Ctrl+B for something different, I want to change the
     # bold key. But for symmetry I also want to change the italic and underline
     # keys.
+    
     @editor_command("Ctrl+Alt+B")
-    def toggle_bold(self):
+    def misc_toggle_bold(self):
         self.editor.web.triggerPageAction(QWebEnginePage.ToggleBold)
 
     @editor_command("Ctrl+Alt+I")
-    def toggle_italic(self):
+    def misc_toggle_italic(self):
         self.editor.web.triggerPageAction(QWebEnginePage.ToggleItalic)
 
     @editor_command("Ctrl+Alt+U")
-    def toggle_underline(self):
+    def misc_toggle_underline(self):
         self.editor.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
+
+    @editor_command("Ctrl+X, O")
+    def misc_copy_for_org_mode(self):
+        note = self.editor.note
+        type_name = note.note_type()["name"]
+        heading = f"* {type_name}\n"
+        entries = [heading]
+        for name, text in note.items():
+            entries.append(f"** {name}\n{text}\n")
+        entries = "".join(entries)
+        mw.app.clipboard().setText(entries)
 
     ########################################
     # code highlight addon extension
