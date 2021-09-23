@@ -18,7 +18,19 @@ Useful for when making a lot of programming related cards.
 
 If you select a text and invoke ~Ctrl+X, C~, it will "codify" it, ~like this~. If there is no selected text, pressing the shortcut will open a form which asks for the code. Pressing Enter will then insert the text you typed in the form ~codified~.
 * Storing/restoring the state of the Add dialog
-Often I'm writing a note for one context, but I get an idea for another. This necessitates changing the deck, note type, fields and tags for the new note, and then restoring them to their previous state. There is a set of commands, all bound to the prefix ~Ctrl+X, S~, which facilitate this (Here the ~S~ stands for "State"). To store the current state, invoke ~Ctrl+X, S, S~ (that is press ~Ctrl+X~ followed by ~S~ followed by ~S~ again). You can then change the state to whatever you like. To restore what you saved, invoke ~Ctrl+Alt+S, R~. If you want to at the same time store the state and clear the fields and tags, invoke ~Ctrl+X, S, C~ (the ~C~ stands for "Clear").
+
+Often I'm writing a note for one context, but I get an idea for another. This necessitates changing the deck, note type, fields and tags for the new note, and then restoring them to their previous state. There is a set of commands, all bound to the prefix ~Ctrl+X, S~, which facilitate this (Here the ~S~ stands for "State").
+
+To store the current state, invoke ~Ctrl+X, S, S~ (that is press ~Ctrl+X~ followed by ~S~ followed by ~S~ again). You can then change the state to whatever you like. To restore what you saved, invoke ~Ctrl+Alt+S, R~. If you want to at the same time store the state and clear the fields and tags, invoke ~Ctrl+X, S, C~ (the ~C~ stands for "Clear").
+
+** Using named states
+
+Invoking ~Ctrl+X, S, V~ shows you the saved states in a dialog similar to the one used to choose decks and note types. Initially it is empty, but you can add new states by typing a name in the ~Filter~ field and pressing the ~Save~ button. States saved like this persist across Anki sessions.
+
+For example, I have a ~python~ saved state, which changes the deck to ~comp~ (which I use for programming related stuff) and adds the ~python~ tag. If I wanted to make a Python card while in the process of making cards related to Anki, I can just press ~Ctrl+X, S, V~, choose ~python~, make the card, and press ~Ctrl+X, S, R~ to get me back to my ~anki~ deck.
+
+When you load a saved state, the previous one is stored, so that you can move back to it with ~Ctrl+X, S, R~.
+
 * Emacs-like commands
 The extension enables moving using keys similar to those in Emacs. Here is a list of all of the commands currently available and their corresponding Emacs commands:
 - ~Ctrl+Space~ :: ~set-mark-command~ (for more about the mark, see below)
