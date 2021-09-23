@@ -2,6 +2,7 @@ import json
 import html
 import re
 import os.path
+import sys
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
@@ -81,6 +82,7 @@ class EditorExtension(Extension):
         self.setup_shortcuts()
         # setup extensions
         self.emacs_setup()
+        self.code_highlight_setup()
 
     ########################################
     # disabling keys
@@ -266,7 +268,44 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+Alt+U")
     def toggle_underline(self):
         self.editor.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
+
+    ########################################
+    # code highlight addon extension
     
+    CODE_HIGHLIGHT_MODULE_NAME = "1463041493"
+
+    def code_highlight_setup(self):
+        try:
+            module = sys.modules[self.CODE_HIGHLIGHT_MODULE_NAME]
+            self.code_highlight_addon = module
+        except KeyError:
+            return
+        
+    def code_highlight_using(self, name):
+        addon = self.code_highlight_addon
+        addon.main.onCodeHighlightLangSelect(self.editor, name)
+        addon.main.highlight_code(self.editor)
+
+    @editor_command("Ctrl+X, L, P")
+    def code_highlight_python(self):
+        self.code_highlight_using("Python 3")
+
+    @editor_command("Ctrl+X, L, E")
+    def code_highlight_elisp(self):
+        self.code_highlight_using("EmacsLisp")
+
+    @editor_command("Ctrl+X, L, J")
+    def code_highlight_JS(self):
+        self.code_highlight_using("JavaScript")
+
+    @editor_command("Ctrl+X, L, C")
+    def code_highlight_C(self):
+        self.code_highlight_using("C")
+
+    @editor_command("Ctrl+X, L, S")
+    def code_highlight_SQL(self):
+        self.code_highlight_using("SQL")
+
 ########################################
 # AddCards
 addcards_commands = {}
