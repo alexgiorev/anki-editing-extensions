@@ -320,12 +320,15 @@ class AddCardsExtension(Extension):
         prefix = self.prefix
         if prefix is not None:
             note = self.editor.note
-            if not note.fields[0]:
+            first_field = note.fields[0]
+            if first_field.startswith(prefix):
+                return
+            elif not first_field:
                 note.fields[0] = prefix
-            elif old is not None and note.fields[0].startswith(old):
-                note.fields[0] = note.fields[0].replace(old, prefix, 1)
+            elif old is not None and first_field.startswith(old):
+                note.fields[0] = first_field.replace(old, prefix, 1)
             else:
-                note.fields[0] = prefix + note.fields[0]
+                note.fields[0] = prefix + first_field
             self.editor.set_note(note)
             # move the cursor to the end of the line
             js = """
@@ -429,7 +432,8 @@ class AddCardsExtension(Extension):
         note.tags = s["tags"][:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        self.prefix_change(s["prefix"]); self.prefix_load()
+        self.prefix_change(s["prefix"])
+        self.prefix_load()
         self.focus_field(0)
         
     @addcards_command("Ctrl+X, S, C")
