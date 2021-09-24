@@ -3,6 +3,7 @@ import html
 import re
 import os.path
 import sys
+import unicodedata
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
@@ -280,6 +281,15 @@ class EditorExtension(Extension):
             entries.append(f"** {name}\n{text}\n")
         entries = "".join(entries)
         mw.app.clipboard().setText(entries)
+
+    @editor_command("Ctrl+Alt+Y")
+    def misc_yank_unfilled(self):
+        text = mw.app.clipboard().text()
+        text = unicodedata.normalize("NFC", text)
+        text = text.strip()
+        text = text.replace("\n", " ")
+        mw.app.clipboard().setText(text)
+        self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
     ########################################
     # code highlight addon extension
