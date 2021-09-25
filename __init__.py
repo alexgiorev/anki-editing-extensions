@@ -483,7 +483,6 @@ class AddCardsExtension(Extension):
     @addcards_command("Ctrl+X, S, S")
     def state_store(self):
         self.state_stored = self.state_get_current()
-        tooltip("Stored current state")
 
     @addcards_command("Ctrl+X, S, R")
     def state_restore(self):
