@@ -381,6 +381,12 @@ class AddCardsExtension(Extension):
         prefix = self.prefix
         if prefix is not None:
             note = self.editor.note
+            # Without this `while`, I get an error saying that `note` is
+            # `None`. I guesssed it has something to do with callbacks setting
+            # the note, so I wrote this loop, and it solves the problem, but I
+            # don't know exactly why.
+            while note is None:
+                note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):
                 return
@@ -459,6 +465,7 @@ class AddCardsExtension(Extension):
     def state_setup(self):
         self.state_stored = None
         self.state_read_saved_states()
+        # self.addcards.finished.connect(self.state_save_as_LAST)
 
     def state_get_current(self):
         notetype_id = self.addcards.notetype_chooser.selected_notetype_id
@@ -574,15 +581,20 @@ class AddCardsExtension(Extension):
     def state_write_states(self):
         with open(self.STATE_SAVED_STATES_PATH, "w") as f:
             json.dump(self.state_saved_states, f)
+
+    def state_save_as_LAST(self):
+        """Called when the dialog is accepted/rejected. Stores the current state
+        under the name "LAST"."""
+        self.state_save_current("LAST")
         
     ########################################
     # misc
     @addcards_command("Ctrl+Alt+N")
-    def change_notetype(self):
+    def misc_change_notetype(self):
         self.addcards.notetype_chooser.choose_notetype()
 
     @addcards_command("Ctrl+Alt+D")
-    def change_deck(self):
+    def misc_change_deck(self):
         self.addcards.deck_chooser.choose_deck()
         
 ########################################
