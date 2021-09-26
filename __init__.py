@@ -381,12 +381,6 @@ class AddCardsExtension(Extension):
         prefix = self.prefix
         if prefix is not None:
             note = self.editor.note
-            # Without this `while`, I get an error saying that `note` is
-            # `None`. I guesssed it has something to do with callbacks setting
-            # the note, so I wrote this loop, and it solves the problem, but I
-            # don't know exactly why.
-            while note is None:
-                note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):
                 return
