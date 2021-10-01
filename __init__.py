@@ -239,7 +239,7 @@ class EditorExtension(Extension):
     def emacs_quit(self):
         self.emacs_deactivate_mark()
 
-    @editor_command("Ctrl+K")
+    @editor_command("Ctrl+W")
     def emacs_kill_region(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Cut)
 
