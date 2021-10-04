@@ -287,7 +287,7 @@ class EditorExtension(Extension):
         text = mw.app.clipboard().text()
         text = unicodedata.normalize("NFC", text)
         text = text.strip()
-        text = text.replace("\n", " ")
+        text = re.sub("\n +", " ", text)
         mw.app.clipboard().setText(text)
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
