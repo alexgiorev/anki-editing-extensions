@@ -291,6 +291,21 @@ class EditorExtension(Extension):
         mw.app.clipboard().setText(text)
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
+    @editor_command("Ctrl+X, Y, O")
+    def misc_yank_from_org(self):
+        # The italic regex must come first, as otherwise it interferes with the
+        # HTML ending tags.
+        regexes = {r"/(.+?)/": r"<i>\1</i>",
+                   r"\*(.+?)\*": r"<b>\1</b>",
+                   r"_(.+?)_": r"<u>\1</u>",
+                   r"~(.+?)~": r"<code>\1</code>&nbsp;"}        
+        text = mw.app.clipboard().text()
+        for regex, sub in regexes.items():
+            text = re.sub(regex, sub, text)
+        text = json.dumps(text)
+        js = f"""document.execCommand("insertHTML", false, {text});"""
+        self.editor.web.eval(js)
+
     ########################################
     # code highlight addon extension
     
