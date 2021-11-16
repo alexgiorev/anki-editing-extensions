@@ -13,10 +13,10 @@ from aqt.studydeck import StudyDeck
 from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
     
 
-########################################
+#════════════════════════════════════════
 # Extension base class
 class Extension:
-    ########################################
+    #════════════════════════════════════════
     # shortcuts
 
     def setup_shortcuts(self):
@@ -56,13 +56,13 @@ class Extension:
                 return False
         return True
 
-    ########################################
+    #════════════════════════════════════════
         
     def focus_field(self, N):
         self.editor.web.setFocus()
         self.editor.web.eval(f"focusField({N})")
 
-########################################
+#════════════════════════════════════════
 # Editor
 
 editor_commands = {}
@@ -81,22 +81,37 @@ class EditorExtension(Extension):
         self.bindings = bindings
         self.disable_keys()
         self.setup_shortcuts()
-        # setup extensions
+        #════════════════════
+        # setups
         self.emacs_setup()
         self.code_highlight_setup()
+        self.test_setup()
 
-    ########################################
-    # disabling keys
+    #════════════════════════════════════════
+    # utils
     
-    def disable_keys(self):
-        # Attach as an attribute to prevent garbage collection.
-        self.disable_keys_event_filter = self.DisableKeysEventFilter()
+    def install_event_filter(self, event_filter):
+        """The caller is responsible for attaching EVENT_FILTER as an attribute
+        of SELF to avoid the garbage collection"""
         # I'm not sure this will work long-term. It is a hack I arrived at after
         # experimentation. Installing the event filter on the `self.editor.web`
         # doesn't work, but on this subwidget it does. The result of the
         # `findChildren` is a singleton list.
         web_subwidget = self.editor.web.findChildren(QWidget)[0]
-        web_subwidget.installEventFilter(self.disable_keys_event_filter)
+        web_subwidget.installEventFilter(event_filter)
+
+    def remove_event_filter(self, event_filter):
+        """EVENT_FILTER must have been previously installed with SELF.INSTALL_EVENT_FILTER"""
+        web_subwidget = self.editor.web.findChildren(QWidget)[0]
+        web_subwidget.removeEventFilter(event_filter)
+
+    #════════════════════════════════════════
+    # disabling keys
+    
+    def disable_keys(self):
+        # Attach as an attribute to prevent garbage collection.
+        self.disable_keys_event_filter = self.DisableKeysEventFilter()
+        self.install_event_filter(self.disable_keys_event_filter)
     
     class DisableKeysEventFilter(QObject):
         disabled_keys = {
@@ -119,7 +134,7 @@ class EditorExtension(Extension):
                         return True
             return False
         
-    ########################################
+    #════════════════════════════════════════
     # codify_selection
     
     @editor_command("Ctrl+X, C")
@@ -141,7 +156,7 @@ class EditorExtension(Extension):
         """
         web.eval(js)
 
-    ########################################
+    #════════════════════════════════════════
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
 
@@ -149,12 +164,13 @@ class EditorExtension(Extension):
     def focus_first_field(self):
         self.focus_field(0)
 
-    ########################################
+    #════════════════════════════════════════
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
         self.emacs_first_move_after_mark = None
+        self.emacs_isearch_setup()
 
     @property
     def emacs_mark_is_active(self):
@@ -252,8 +268,81 @@ class EditorExtension(Extension):
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
-    ########################################
-    # misc
+    def emacs_isearch_setup(self):
+        self.editor.web.eval("""
+        let emacs_isearch_current_position = null;
+        """)
+        
+    class emacs_isearch_EventFilter(QObject):
+        def __init__(self, ext):
+            super().__init__()
+            self.ext = ext
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.KeyPress:
+                line_edit = self.ext.emacs_isearch_line_edit
+                if event.key() == Qt.Key_Return:
+                    self.ext.editor.outerLayout.removeWidget(line_edit)
+                    text = line_edit.text(); line_edit.setParent(None)
+                    self.ext.remove_event_filter(self)
+                    self.ext.editor.web.findText(text)
+                    self.ext.editor.web.findText("")
+                    self.ext.editor.web.eval(
+                        """window.getSelection().collapseToEnd()""")
+                else:
+                    line_edit = self.ext.emacs_isearch_line_edit
+                    line_edit.setText(line_edit.text() + event.text())
+                return True
+            return False
+
+    @editor_command("Ctrl+S")
+    def emacs_isearch_forward(self):
+        self.emacs_isearch_save_cursor()
+        self.emacs_isearch_line_edit = QLineEdit()
+        self.emacs_isearch_line_edit.setReadOnly(True)
+        self.emacs_isearch_event_filter = self.emacs_isearch_EventFilter(self)
+        self.editor.outerLayout.insertWidget(1, self.emacs_isearch_line_edit)
+        self.install_event_filter(self.emacs_isearch_event_filter)
+
+    def emacs_isearch_save_cursor(self):
+        self.editor.web.eval("""
+        (function(){
+            s = getSelection();
+            emacs_isearch_current_position = [s.focusNode, s.focusOffset];
+            alert(emacs_isearch_current_position[0].nodeName)
+        })();
+        """)
+
+    def emacs_isearch_goto_cursor(self):
+        self.editor.web.eval("""
+        (function(){
+            if ([node,offset] = emacs_isearch_current_position){
+                s = getSelection();
+                s.setBaseAndExtent(node, offset, node, offset);
+            }
+        })();
+        """)
+                             
+    def emacs_isearch_move_cursor(self, text, backward=False):
+        flags = QWebEnginePage.FindBackward if backward else 0
+        if backward:
+            self.editor.web.findText(text, QWebEnginePage.FindBackward)
+        else:
+            self.editor.web.findText(text)
+        self.editor.web.findText("")
+        self.editor.web.eval("""window.getSelection().collapseToEnd()""")
+        
+    @editor_command("Ctrl+R")
+    def emacs_search_backward(self):
+        text, accepted = QInputDialog.getText(None, "", "Enter: ")
+        if accepted:
+            self.editor.web.findText(text, QWebEnginePage.FindBackward)
+            self.editor.web.findText("")
+            self.editor.web.eval(
+                """window.getSelection().collapseToStart()""")
+            
+    #════════════════════════════════════════
+    # misc commands
 
     # Since now I'm using Ctrl+B for something different, I want to change the
     # bold key. But for symmetry I also want to change the italic and underline
@@ -287,7 +376,7 @@ class EditorExtension(Extension):
         text = mw.app.clipboard().text()
         text = unicodedata.normalize("NFC", text)
         text = text.strip()
-        text = re.sub("\n +", " ", text)
+        text = re.sub("\n *", " ", text)
         mw.app.clipboard().setText(text)
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
@@ -306,7 +395,7 @@ class EditorExtension(Extension):
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.editor.web.eval(js)
 
-    ########################################
+    #════════════════════════════════════════
     # code highlight addon extension
     
     CODE_HIGHLIGHT_MODULE_NAME = "1463041493"
@@ -343,7 +432,80 @@ class EditorExtension(Extension):
     def code_highlight_SQL(self):
         self.code_highlight_using("SQL")
 
-########################################
+    #════════════════════════════════════════
+    # testing facilities
+    
+    def test_setup(self):
+        self.test_runJS_past = []
+
+    @editor_command("Ctrl+X, T, J")
+    def test_runJS(self):
+        """A rudimentary utility which enables one to run JS in the editor."""
+        dialog = self.test_runJS_Dialog(self)
+        dialog.exec_()
+        # remove dialog
+        dialog.setParent(None)
+
+    class test_runJS_Dialog(QDialog):
+        class CodeEdit(QTextEdit):
+            def __init__(self, ext, parent):
+                super().__init__(parent)
+                self.ext = ext
+                self.past = ext.test_runJS_past
+                self.current = len(self.past)-1
+                # setup the font
+                doc = self.document();
+                font = doc.defaultFont();
+                font.setFamily("Ubuntu Mono");
+                font.setPointSize(15)
+                doc.setDefaultFont(font);
+
+            def keyPressEvent(self, event):
+                if event.key() == Qt.Key_Return and event.modifiers() == Qt.ControlModifier:
+                    self.parent().accept()
+                elif event.modifiers() == Qt.AltModifier:
+                    if self.past:
+                        if event.key() == Qt.Key_Up:
+                            self.current = (self.current - 1) % len(self.past)
+                            self.show_past_command()
+                        elif event.key() == Qt.Key_Down:
+                            self.current = (self.current + 1) % len(self.past)
+                            self.show_past_command
+                else:
+                    super().keyPressEvent(event)    
+
+            def show_past_command(self):
+                text = self.past[self.current]
+                self.setPlainText(text)
+            
+        def __init__(self, ext):
+            super().__init__(ext.editor.parentWindow)
+            self.ext = ext
+            self.code_edit = self.CodeEdit(ext, self)
+            layout = QVBoxLayout()
+            layout.addWidget(self.code_edit)
+            self.setLayout(layout)
+
+        def accept(self):
+            text = self.code_edit.toPlainText()
+            self.ext.editor.web.eval(text)
+            self.ext.test_runJS_past.append(text)
+            super().accept()
+
+    @editor_command("Ctrl+X, T, 1")
+    def test_command1(self):
+        self.editor.web.eval("""
+        (function(){
+            focusNode = getSelection().focusNode;
+            alert(getSelection().focusOffset);
+        })();
+        """)
+
+    @editor_command("Ctrl+X, T, 2")
+    def test_command2(self):
+        self.emacs_isearch_goto_cursor()
+
+#════════════════════════════════════════
 # AddCards
 addcards_commands = {}
 def addcards_command(key_seq_str):
@@ -365,7 +527,7 @@ class AddCardsExtension(Extension):
         self.typeauto_setup()
         self.prefix_setup()
 
-    ########################################
+    #════════════════════════════════════════
     # prefix_first_field
 
     def prefix_setup(self):
@@ -418,7 +580,7 @@ class AddCardsExtension(Extension):
     def prefix_add_cards_did_add_note(self, note):
         self.prefix_load()
 
-    ########################################
+    #════════════════════════════════════════
     # Notetype automation. Since I'm practically only using the Basic and Cloze
     # model, I want Basic to be default and Cloze to be switched to when
     # invoking the clozing key.
@@ -464,7 +626,7 @@ class AddCardsExtension(Extension):
         basic_id = mw.col.models.id_for_name("Basic")
         self.addcards.notetype_chooser.selected_notetype_id = basic_id
 
-    ########################################
+    #════════════════════════════════════════
     # state management
 
     STATE_SAVED_STATES_PATH = os.path.realpath(
@@ -595,7 +757,7 @@ class AddCardsExtension(Extension):
         under the name "LAST"."""
         self.state_save_current("LAST")
         
-    ########################################
+    #════════════════════════════════════════
     # misc
     @addcards_command("Ctrl+Alt+N")
     def misc_change_notetype(self):
@@ -605,7 +767,7 @@ class AddCardsExtension(Extension):
     def misc_change_deck(self):
         self.addcards.deck_chooser.choose_deck()
         
-########################################
+#════════════════════════════════════════
 # main hooks
 
 def editor_did_init(editor):
