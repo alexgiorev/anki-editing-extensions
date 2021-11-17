@@ -60,7 +60,7 @@ class Extension:
         
     def focus_field(self, N):
         self.editor.web.setFocus()
-        self.editor.web.eval(f"focusField({N})")
+        self.eval_js(f"focusField({N})")
 
 #════════════════════════════════════════
 # Editor
@@ -83,6 +83,7 @@ class EditorExtension(Extension):
         self.setup_shortcuts()
         #════════════════════
         # setups
+        self.setup_js()
         self.emacs_setup()
         self.code_highlight_setup()
         self.test_setup()
@@ -104,6 +105,15 @@ class EditorExtension(Extension):
         """EVENT_FILTER must have been previously installed with SELF.INSTALL_EVENT_FILTER"""
         web_subwidget = self.editor.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
+
+    def eval_js(self, js):
+        self.editor.web.eval(js)
+
+    def emacs_save_point(self):
+        self.eval_js("emacs_save_point()")
+
+    def emacs_restore_point(self):
+        self.eval_js("emacs_restore_point()")
 
     #════════════════════════════════════════
     # disabling keys
@@ -133,6 +143,14 @@ class EditorExtension(Extension):
                     if event_key == dis_key and event_modifiers == dis_modifiers:
                         return True
             return False
+
+    #════════════════════════════════════════
+    # JavaScript setup
+    def setup_js(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "editor_extensions.js")
+        text = open(path).read()
+        self.eval_js(text)
         
     #════════════════════════════════════════
     # codify_selection
@@ -170,15 +188,6 @@ class EditorExtension(Extension):
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
         self.emacs_first_move_after_mark = None
-        self.emacs_isearch_setup()
-        self.emacs_setup_JS()
-
-    def emacs_setup_JS(self):
-        self.editor.web.eval("""
-        function emacs_get_selection(){
-            return getCurrentField().activeInput.getRootNode().getSelection();
-        }        
-        """
 
     @property
     def emacs_mark_is_active(self):
@@ -205,7 +214,7 @@ class EditorExtension(Extension):
             selection.modify("%s", "%s", "%s");
         })();
         """ % (alter, direction, granularity)
-        self.editor.web.eval(js)
+        self.eval_js(js)
         if self.emacs_mark_is_active and self.emacs_first_move_after_mark is None:
             self.emacs_first_move_after_mark = direction
         self.emacs_extend_selection_next_time = False
@@ -218,7 +227,7 @@ class EditorExtension(Extension):
         js = ("emacs_get_selection().collapseToEnd()"
               if self.emacs_first_move_after_mark == "forward"
               else "emacs_get_selection().collapseToStart()")
-        self.editor.web.eval(js)
+        self.eval_js(js)
         self.emacs_first_move_after_mark = None
 
     @editor_command("Ctrl+X, H")
@@ -276,91 +285,13 @@ class EditorExtension(Extension):
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
-    def emacs_isearch_setup(self):
-        self.emacs_isearch_string = None
-        self.editor.web.eval("let emacs_isearch_field;")
-
-    class emacs_isearch_EventFilter(QObject):
-        def __init__(self, ext):
-            super().__init__()
-            self.ext = ext
-            
-        def eventFilter(self, obj, event):
-            if event.type() == QEvent.KeyPress:
-                line_edit = self.ext.emacs_isearch_line_edit
-                key, modifiers = event.key(), event.modifiers()
-                if key == Qt.Key_Return:
-                    self.ext.emacs_isearch_string = line_edit.text()
-                    line_edit.setParent(None)
-                    self.ext.remove_event_filter(self)
-                    self.ext.emacs_isearch_do_search(
-                        self.ext.emacs_isearch_direction)
-                elif (key == Qt.Key_Escape or
-                      (key == Qt.Key_G and modifiers == Qt.ControlModifier)):
-                    line_edit.setParent(None)
-                    self.ext.remove_event_filter(self)
-                elif key == Qt.Key_Backspace:
-                    line_edit.setText(line_edit.text()[:-1])
-                else:
-                    line_edit.setText(line_edit.text() + event.text())
-                    self.ext.editor.web.findText(line_edit.text())
-                return True
-            else:
-                return False
-            
-    @editor_command("Ctrl+S")
-    def emacs_isearch_forward(self):
-        self.emacs_isearch_direction = "forward"
-        self.editor.web.eval("""
-        emacs_isearch_field = getCurrentField()
-        console.log("### The current field is: " + getCurrentField())
-        """)        
-        self.emacs_isearch_setup_edit()
-
-    @editor_command("Ctrl+R")
-    def emacs_isearch_backward(self):
-        self.emacs_isearch_direction = "backward"
-        self.emacs_isearch_setup_edit()
-
-    @editor_command("Alt+S")
-    def emacs_isearch_move_forward(self):
-        self.emacs_isearch_do_search("forward")
-
-    @editor_command("Alt+R")
-    def emacs_isearch_move_backward(self):
-        self.emacs_isearch_do_search("backward")
-
-    def emacs_isearch_setup_edit(self):
-        edit = self.emacs_isearch_line_edit = QLineEdit()
-        self.editor.outerLayout.insertWidget(1, edit)
-        edit.setReadOnly(True)
-        event_filter = self.emacs_isearch_filter = (
-            self.emacs_isearch_EventFilter(self))
-        self.install_event_filter(event_filter)
-
-    def emacs_isearch_do_search(self, direction):
-        string = self.emacs_isearch_string
-        if string:
-            if direction == "backward":
-                self.editor.web.findText(
-                    string, options=QWebEnginePage.FindBackward)
-            elif direction == "forward":
-                self.editor.web.findText(string)
-            else:
-                raise ValueError(f"Invalid direction: {direction}")
-        self.editor.web.findText("")
-        self.editor.web.eval("""
-        (function(){
-            const direction = "%s"
-            const selection = emacs_isearch_field.activeInput.getRootNode().getSelection();
-            console.log("### Selection: " + typeof selection);
-            if (direction === "forward")
-                selection.collapseToEnd();
-            else
-                selection.collapseToStart();    
-        })();
-        """ % (direction,))
-
+    #════════════════════════════════════════
+    # emacs_search
+    
+    def emacs_search(self, substr, direction):
+        substr, direction = json.dumps(substr), json.dumps(direction)
+        self.eval_js(f"emacs_search({substr}, {direction})")
+    
     #════════════════════════════════════════
     # misc commands
 
@@ -413,7 +344,7 @@ class EditorExtension(Extension):
             text = re.sub(regex, sub, text)
         text = json.dumps(text)
         js = f"""document.execCommand("insertHTML", false, {text});"""
-        self.editor.web.eval(js)
+        self.eval_js(js)
 
     #════════════════════════════════════════
     # code highlight addon extension
@@ -511,6 +442,13 @@ class EditorExtension(Extension):
         dialog.run()
         dialog.setParent(None)
 
+    @editor_command("Ctrl+X, T, F")
+    def test_run_JS_from_file(self):
+        FILE = "/home/alex/scratch/scratch.js"
+        js = open(FILE).read()
+        self.eval_js(js)
+        print(f"### Executed \"{os.path.basename(FILE)}\"")
+
     @editor_command("Ctrl+X, T, P")
     def test_run_Python(self):
         """A rudimentary utility which enables one to run JS in the editor."""
@@ -595,7 +533,7 @@ class AddCardsExtension(Extension):
                 selection.modify("move", "forward", "line");
             })();
             """
-            self.editor.web.eval(js)
+            self.eval_js(js)
     
     def prefix_add_cards_did_add_note(self, note):
         self.prefix_load()
@@ -639,7 +577,7 @@ class AddCardsExtension(Extension):
         # enough heuristic.
         self.editor.web.findText("}}")
         self.editor.web.findText("")
-        self.editor.web.eval(
+        self.eval_js(
             """emacs_get_selection().collapseToEnd()""")
         
     def typeauto_switch_to_basic(self, *args):
