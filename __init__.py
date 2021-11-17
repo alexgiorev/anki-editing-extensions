@@ -170,7 +170,15 @@ class EditorExtension(Extension):
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
         self.emacs_first_move_after_mark = None
-        self.emacs_search_setup()
+        self.emacs_isearch_setup()
+        self.emacs_setup_JS()
+
+    def emacs_setup_JS(self):
+        self.editor.web.eval("""
+        function emacs_get_selection(){
+            return getCurrentField().activeInput.getRootNode().getSelection();
+        }        
+        """
 
     @property
     def emacs_mark_is_active(self):
@@ -193,7 +201,7 @@ class EditorExtension(Extension):
         alter = "extend" if self.emacs_mark_is_active else "move"
         js = """
         (function(){
-            const selection = window.getSelection();
+            const selection = emacs_get_selection();
             selection.modify("%s", "%s", "%s");
         })();
         """ % (alter, direction, granularity)
@@ -207,9 +215,9 @@ class EditorExtension(Extension):
         # movement command after the mark is set. I tried using
         # selection.anchorOffset and selection.focusOffset but for some reason
         # it didn't work.
-        js = ("window.getSelection().collapseToEnd()"
+        js = ("emacs_get_selection().collapseToEnd()"
               if self.emacs_first_move_after_mark == "forward"
-              else "window.getSelection().collapseToStart()")
+              else "emacs_get_selection().collapseToStart()")
         self.editor.web.eval(js)
         self.emacs_first_move_after_mark = None
 
@@ -268,24 +276,25 @@ class EditorExtension(Extension):
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
-    def emacs_search_setup(self):
-        self.emacs_search_string = None
+    def emacs_isearch_setup(self):
+        self.emacs_isearch_string = None
+        self.editor.web.eval("let emacs_isearch_field;")
 
-    class emacs_search_EventFilter(QObject):
+    class emacs_isearch_EventFilter(QObject):
         def __init__(self, ext):
             super().__init__()
             self.ext = ext
             
         def eventFilter(self, obj, event):
             if event.type() == QEvent.KeyPress:
-                line_edit = self.ext.emacs_search_line_edit
+                line_edit = self.ext.emacs_isearch_line_edit
                 key, modifiers = event.key(), event.modifiers()
                 if key == Qt.Key_Return:
-                    self.ext.emacs_search_string = line_edit.text()
+                    self.ext.emacs_isearch_string = line_edit.text()
                     line_edit.setParent(None)
                     self.ext.remove_event_filter(self)
-                    self.ext.emacs_search_do_search(
-                        self.ext.emacs_search_direction)
+                    self.ext.emacs_isearch_do_search(
+                        self.ext.emacs_isearch_direction)
                 elif (key == Qt.Key_Escape or
                       (key == Qt.Key_G and modifiers == Qt.ControlModifier)):
                     line_edit.setParent(None)
@@ -294,61 +303,64 @@ class EditorExtension(Extension):
                     line_edit.setText(line_edit.text()[:-1])
                 else:
                     line_edit.setText(line_edit.text() + event.text())
+                    self.ext.editor.web.findText(line_edit.text())
                 return True
             else:
                 return False
             
     @editor_command("Ctrl+S")
-    def emacs_search_forward(self):
-        self.emacs_search_direction = "forward"
-        self.emacs_search_setup_edit()
+    def emacs_isearch_forward(self):
+        self.emacs_isearch_direction = "forward"
+        self.editor.web.eval("""
+        emacs_isearch_field = getCurrentField()
+        console.log("### The current field is: " + getCurrentField())
+        """)        
+        self.emacs_isearch_setup_edit()
 
     @editor_command("Ctrl+R")
-    def emacs_search_backward(self):
-        self.emacs_search_direction = "backward"
-        self.emacs_search_setup_edit()
+    def emacs_isearch_backward(self):
+        self.emacs_isearch_direction = "backward"
+        self.emacs_isearch_setup_edit()
 
     @editor_command("Alt+S")
-    def emacs_search_move_forward(self):
-        self.emacs_search_do_search("forward")
+    def emacs_isearch_move_forward(self):
+        self.emacs_isearch_do_search("forward")
 
     @editor_command("Alt+R")
-    def emacs_search_move_backward(self):
-        self.emacs_search_do_search("backward")
+    def emacs_isearch_move_backward(self):
+        self.emacs_isearch_do_search("backward")
 
-    def emacs_search_setup_edit(self):
-        edit = self.emacs_search_line_edit = QLineEdit()
+    def emacs_isearch_setup_edit(self):
+        edit = self.emacs_isearch_line_edit = QLineEdit()
         self.editor.outerLayout.insertWidget(1, edit)
         edit.setReadOnly(True)
-        event_filter = self.emacs_search_filter = (
-            self.emacs_search_EventFilter(self))
+        event_filter = self.emacs_isearch_filter = (
+            self.emacs_isearch_EventFilter(self))
         self.install_event_filter(event_filter)
 
-    def emacs_search_do_search(self, direction):
-        string = self.emacs_search_string
-        self._emacs_search_do_search_direction = direction
+    def emacs_isearch_do_search(self, direction):
+        string = self.emacs_isearch_string
         if string:
             if direction == "backward":
                 self.editor.web.findText(
-                    string, options=QWebEnginePage.FindBackward,
-                    resultCallback=self.emacs_search_findText_callback)
+                    string, options=QWebEnginePage.FindBackward)
             elif direction == "forward":
-                self.editor.web.findText(
-                    string, resultCallback=self.emacs_search_findText_callback)
+                self.editor.web.findText(string)
             else:
                 raise ValueError(f"Invalid direction: {direction}")
+        self.editor.web.findText("")
+        self.editor.web.eval("""
+        (function(){
+            const direction = "%s"
+            const selection = emacs_isearch_field.activeInput.getRootNode().getSelection();
+            console.log("### Selection: " + typeof selection);
+            if (direction === "forward")
+                selection.collapseToEnd();
+            else
+                selection.collapseToStart();    
+        })();
+        """ % (direction,))
 
-    def emacs_search_findText_callback(self, found):
-        if found:
-            print("### FOUND")
-            self.editor.web.findText("")
-            if self._emacs_search_do_search_direction == "forward":
-                self.editor.web.eval("getSelection().collapseToEnd()")
-            else:
-                self.editor.web.eval("getSelection().collapseToStart()")
-        else:
-            print("### NOT FOUND")
-            
     #════════════════════════════════════════
     # misc commands
 
@@ -579,7 +591,7 @@ class AddCardsExtension(Extension):
             # move the cursor to the end of the line
             js = """
             (function () {
-                const selection = window.getSelection();
+                const selection = emacs_get_selection();
                 selection.modify("move", "forward", "line");
             })();
             """
@@ -628,7 +640,7 @@ class AddCardsExtension(Extension):
         self.editor.web.findText("}}")
         self.editor.web.findText("")
         self.editor.web.eval(
-            """window.getSelection().collapseToEnd()""")
+            """emacs_get_selection().collapseToEnd()""")
         
     def typeauto_switch_to_basic(self, *args):
         basic_id = mw.col.models.id_for_name("Basic")
