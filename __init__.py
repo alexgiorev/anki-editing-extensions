@@ -170,7 +170,7 @@ class EditorExtension(Extension):
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
         self.emacs_first_move_after_mark = None
-        self.emacs_isearch_setup()
+        self.emacs_search_setup()
 
     @property
     def emacs_mark_is_active(self):
@@ -268,78 +268,86 @@ class EditorExtension(Extension):
     def emacs_yank(self):
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
-    def emacs_isearch_setup(self):
-        self.editor.web.eval("""
-        let emacs_isearch_current_position = null;
-        """)
-        
-    class emacs_isearch_EventFilter(QObject):
+    def emacs_search_setup(self):
+        self.emacs_search_string = None
+
+    class emacs_search_EventFilter(QObject):
         def __init__(self, ext):
             super().__init__()
             self.ext = ext
-
+            
         def eventFilter(self, obj, event):
             if event.type() == QEvent.KeyPress:
-                line_edit = self.ext.emacs_isearch_line_edit
-                if event.key() == Qt.Key_Return:
-                    self.ext.editor.outerLayout.removeWidget(line_edit)
-                    text = line_edit.text(); line_edit.setParent(None)
+                line_edit = self.ext.emacs_search_line_edit
+                key, modifiers = event.key(), event.modifiers()
+                if key == Qt.Key_Return:
+                    self.ext.emacs_search_string = line_edit.text()
+                    line_edit.setParent(None)
                     self.ext.remove_event_filter(self)
-                    self.ext.editor.web.findText(text)
-                    self.ext.editor.web.findText("")
-                    self.ext.editor.web.eval(
-                        """window.getSelection().collapseToEnd()""")
+                    self.ext.emacs_search_do_search(
+                        self.ext.emacs_search_direction)
+                elif (key == Qt.Key_Escape or
+                      (key == Qt.Key_G and modifiers == Qt.ControlModifier)):
+                    line_edit.setParent(None)
+                    self.ext.remove_event_filter(self)
+                elif key == Qt.Key_Backspace:
+                    line_edit.setText(line_edit.text()[:-1])
                 else:
-                    line_edit = self.ext.emacs_isearch_line_edit
                     line_edit.setText(line_edit.text() + event.text())
                 return True
-            return False
-
+            else:
+                return False
+            
     @editor_command("Ctrl+S")
-    def emacs_isearch_forward(self):
-        self.emacs_isearch_save_cursor()
-        self.emacs_isearch_line_edit = QLineEdit()
-        self.emacs_isearch_line_edit.setReadOnly(True)
-        self.emacs_isearch_event_filter = self.emacs_isearch_EventFilter(self)
-        self.editor.outerLayout.insertWidget(1, self.emacs_isearch_line_edit)
-        self.install_event_filter(self.emacs_isearch_event_filter)
+    def emacs_search_forward(self):
+        self.emacs_search_direction = "forward"
+        self.emacs_search_setup_edit()
 
-    def emacs_isearch_save_cursor(self):
-        self.editor.web.eval("""
-        (function(){
-            s = getSelection();
-            emacs_isearch_current_position = [s.focusNode, s.focusOffset];
-            alert(emacs_isearch_current_position[0].nodeName)
-        })();
-        """)
-
-    def emacs_isearch_goto_cursor(self):
-        self.editor.web.eval("""
-        (function(){
-            if ([node,offset] = emacs_isearch_current_position){
-                s = getSelection();
-                s.setBaseAndExtent(node, offset, node, offset);
-            }
-        })();
-        """)
-                             
-    def emacs_isearch_move_cursor(self, text, backward=False):
-        flags = QWebEnginePage.FindBackward if backward else 0
-        if backward:
-            self.editor.web.findText(text, QWebEnginePage.FindBackward)
-        else:
-            self.editor.web.findText(text)
-        self.editor.web.findText("")
-        self.editor.web.eval("""window.getSelection().collapseToEnd()""")
-        
     @editor_command("Ctrl+R")
     def emacs_search_backward(self):
-        text, accepted = QInputDialog.getText(None, "", "Enter: ")
-        if accepted:
-            self.editor.web.findText(text, QWebEnginePage.FindBackward)
+        self.emacs_search_direction = "backward"
+        self.emacs_search_setup_edit()
+
+    @editor_command("Alt+S")
+    def emacs_search_move_forward(self):
+        self.emacs_search_do_search("forward")
+
+    @editor_command("Alt+R")
+    def emacs_search_move_backward(self):
+        self.emacs_search_do_search("backward")
+
+    def emacs_search_setup_edit(self):
+        edit = self.emacs_search_line_edit = QLineEdit()
+        self.editor.outerLayout.insertWidget(1, edit)
+        edit.setReadOnly(True)
+        event_filter = self.emacs_search_filter = (
+            self.emacs_search_EventFilter(self))
+        self.install_event_filter(event_filter)
+
+    def emacs_search_do_search(self, direction):
+        string = self.emacs_search_string
+        self._emacs_search_do_search_direction = direction
+        if string:
+            if direction == "backward":
+                self.editor.web.findText(
+                    string, options=QWebEnginePage.FindBackward,
+                    resultCallback=self.emacs_search_findText_callback)
+            elif direction == "forward":
+                self.editor.web.findText(
+                    string, resultCallback=self.emacs_search_findText_callback)
+            else:
+                raise ValueError(f"Invalid direction: {direction}")
+
+    def emacs_search_findText_callback(self, found):
+        if found:
+            print("### FOUND")
             self.editor.web.findText("")
-            self.editor.web.eval(
-                """window.getSelection().collapseToStart()""")
+            if self._emacs_search_do_search_direction == "forward":
+                self.editor.web.eval("getSelection().collapseToEnd()")
+            else:
+                self.editor.web.eval("getSelection().collapseToStart()")
+        else:
+            print("### NOT FOUND")
             
     #════════════════════════════════════════
     # misc commands
@@ -436,48 +444,32 @@ class EditorExtension(Extension):
     # testing facilities
     
     def test_setup(self):
-        self.test_runJS_past = []
+        pass
 
-    @editor_command("Ctrl+X, T, J")
-    def test_runJS(self):
-        """A rudimentary utility which enables one to run JS in the editor."""
-        dialog = self.test_runJS_Dialog(self)
-        dialog.exec_()
-        # remove dialog
-        dialog.setParent(None)
-
-    class test_runJS_Dialog(QDialog):
+    class test_runCode_Dialog(QDialog):
         class CodeEdit(QTextEdit):
             def __init__(self, ext, parent):
                 super().__init__(parent)
                 self.ext = ext
-                self.past = ext.test_runJS_past
-                self.current = len(self.past)-1
                 # setup the font
                 doc = self.document();
                 font = doc.defaultFont();
                 font.setFamily("Ubuntu Mono");
                 font.setPointSize(15)
                 doc.setDefaultFont(font);
-
+                
             def keyPressEvent(self, event):
-                if event.key() == Qt.Key_Return and event.modifiers() == Qt.ControlModifier:
-                    self.parent().accept()
-                elif event.modifiers() == Qt.AltModifier:
-                    if self.past:
-                        if event.key() == Qt.Key_Up:
-                            self.current = (self.current - 1) % len(self.past)
-                            self.show_past_command()
-                        elif event.key() == Qt.Key_Down:
-                            self.current = (self.current + 1) % len(self.past)
-                            self.show_past_command
+                key, modifiers = event.key(), event.modifiers()
+                if modifiers == Qt.ControlModifier:
+                    if key == Qt.Key_Return:
+                        self.parent().accept()
+                    elif key == Qt.Key_E:
+                        self.parent().eval(self.toPlainText())
+                    else:
+                        super().keyPressEvent(event)
                 else:
-                    super().keyPressEvent(event)    
+                    super().keyPressEvent(event)
 
-            def show_past_command(self):
-                text = self.past[self.current]
-                self.setPlainText(text)
-            
         def __init__(self, ext):
             super().__init__(ext.editor.parentWindow)
             self.ext = ext
@@ -486,24 +478,40 @@ class EditorExtension(Extension):
             layout.addWidget(self.code_edit)
             self.setLayout(layout)
 
-        def accept(self):
-            text = self.code_edit.toPlainText()
+        def run(self):
+            self.exec_()
+
+        def eval(self, text):
+            raise NotImplementedError
+        
+    class test_run_JS_Dialog(test_runCode_Dialog):
+        def eval(self, text):
             self.ext.editor.web.eval(text)
-            self.ext.test_runJS_past.append(text)
-            super().accept()
+
+    class test_run_Python_Dialog(test_runCode_Dialog):
+        def eval(self, text):
+            exec(text, globals(), {"ext": self.ext})
+
+    @editor_command("Ctrl+X, T, J")
+    def test_run_JS(self):
+        """A rudimentary utility which enables one to run JS in the editor."""
+        dialog = self.test_run_JS_Dialog(self)
+        dialog.run()
+        dialog.setParent(None)
+
+    @editor_command("Ctrl+X, T, P")
+    def test_run_Python(self):
+        """A rudimentary utility which enables one to run JS in the editor."""
+        dialog = self.test_run_Python_Dialog(self)
+        dialog.run()
+        dialog.setParent(None)
 
     @editor_command("Ctrl+X, T, 1")
     def test_command1(self):
-        self.editor.web.eval("""
-        (function(){
-            focusNode = getSelection().focusNode;
-            alert(getSelection().focusOffset);
-        })();
-        """)
-
+        pass
     @editor_command("Ctrl+X, T, 2")
     def test_command2(self):
-        self.emacs_isearch_goto_cursor()
+        pass
 
 #════════════════════════════════════════
 # AddCards
