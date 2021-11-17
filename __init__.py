@@ -291,7 +291,86 @@ class EditorExtension(Extension):
     def emacs_search(self, substr, direction):
         substr, direction = json.dumps(substr), json.dumps(direction)
         self.eval_js(f"emacs_search({substr}, {direction})")
-    
+
+    @editor_command("Ctrl+S")
+    def emacs_isearch_forward(self):
+        self.emacs_isearch_direction = "forward"
+        self.emacs_isearch_mode()
+
+    @editor_command("Ctrl+R")
+    def emacs_isearch_backward(self):
+        self.emacs_isearch_direction = "backward"
+        self.emacs_isearch_mode()
+
+    def emacs_isearch_mode(self):
+        edit = self.emacs_isearch_line_edit = QLineEdit()
+        self.editor.outerLayout.insertWidget(1, edit)
+        edit.setReadOnly(True)
+        event_filter = self.emacs_isearch_event_filter = (
+            self.emacs_isearch_EventFilter(self))
+        self.install_event_filter(event_filter)
+
+    class emacs_isearch_EventFilter(QObject):
+        def __init__(self, ext):
+            super().__init__()
+            self.ext = ext
+            self.edit = ext.emacs_isearch_line_edit
+            self.ext.emacs_save_point()
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.KeyPress:
+                print("### emacs_isearch_EventFilter received key event")
+                key, modifiers = event.key(), event.modifiers()
+                if key == Qt.Key_Return:
+                    self.accept()
+                elif (key == Qt.Key_Escape or
+                      (key == Qt.Key_G and modifiers == Qt.ControlModifier)):
+                    self.reject()
+                elif key == Qt.Key_Backspace:
+                    self.delete()
+                elif key == Qt.Key_S and modifiers == Qt.AltModifier:
+                    self.move("forward")
+                elif key == Qt.Key_R and modifiers == Qt.AltModifier:
+                    self.move("backward")
+                else:
+                    self.insert(event.text())
+                return True
+            else:
+                return False
+
+        def cleanup(self):
+            self.edit.setParent(None)
+            self.ext.remove_event_filter(self)
+            del self.ext.emacs_isearch_event_filter
+
+        def accept(self):
+            self.cleanup()
+
+        def reject(self):
+            self.ext.emacs_restore_point()
+            self.cleanup()
+
+        def delete(self):
+            text = self.edit.text()
+            if text:
+                new_text = text[:-1]
+                self.edit.setText(new_text)
+                self.ext.emacs_restore_point()
+                self.ext.emacs_search(
+                    new_text, self.ext.emacs_isearch_direction)
+        
+        def insert(self, char):
+            new_text = self.edit.text() + char
+            self.edit.setText(new_text)
+            self.ext.emacs_restore_point()
+            self.ext.emacs_search(
+                new_text, self.ext.emacs_isearch_direction)
+
+        def move(self, direction):
+            text = self.edit.text()
+            if text:
+                self.ext.emacs_search(text, "forward")
+            
     #════════════════════════════════════════
     # misc commands
 
@@ -387,7 +466,13 @@ class EditorExtension(Extension):
     # testing facilities
     
     def test_setup(self):
-        pass
+        class Filter(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.KeyPress:
+                    print("### Window received key event")
+                return False
+        self.test_event_filter = Filter()
+        self.editor.parentWindow.installEventFilter(self.test_event_filter)
 
     class test_runCode_Dialog(QDialog):
         class CodeEdit(QTextEdit):
