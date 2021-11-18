@@ -25,6 +25,7 @@ class Extension:
             if shortcut is None:
                 method = getattr(self, command_name)
                 shortcut = QShortcut(key_seq, self.widget, activated=method)
+                self.bindings[command_name][1] = shortcut
 
     def disable_used_keys(self):
         attr = f"{self}_did_disable_used_keys"
@@ -57,6 +58,24 @@ class Extension:
                 return False
         return True
 
+    def disable_command(self, command_name):
+        """Make sure to call this only after (self.setup_shortcuts).
+        COMMAND_NAME must be the name of a method which plays the role of a
+        command. If it is not, nothing happens. It disables the command in the
+        sense that pressing its key sequence will not invoke it."""
+        shortcut = self.bindings[command_name][1]
+        if shortcut is not None:
+            shortcut.setEnabled(False)
+
+    def enable_command(self, command_name):
+        """Make sure to call this only after (self.setup_shortcuts).
+        COMMAND_NAME must be the name of a method which plays the role of a
+        command. If it is not, nothing happens. It enables the command in the
+        sense that pressing its key sequence will invoke it."""
+        shortcut = self.bindings[command_name][1]
+        if shortcut is not None:
+            shortcut.setEnabled(True)
+    
     #════════════════════════════════════════
     # misc
     
@@ -68,13 +87,13 @@ class Extension:
 # Editor
 
 # editor_commands is a dict which maps a method name to
-# a pair (QKeySequence, QShortcut_or_None)
+# a list pair [QKeySequence, QShortcut_or_None]
 editor_commands = {}
 def editor_command(key_seq_str):
     def decorator(func):
         # Bind to the function name instead of the function so that
         # different methods are created for different instances
-        editor_commands[func.__name__] = (QKeySequence(key_seq_str), None)
+        editor_commands[func.__name__] = [QKeySequence(key_seq_str), None]
         return func
     return decorator
 
@@ -320,32 +339,48 @@ class EditorExtension(Extension):
             self.ext = ext
             self.edit = ext.emacs_isearch_line_edit
             self.ext.emacs_save_point()
+            self.conflicting_commands = [
+                "emacs_quit", "emacs_isearch_forward",
+                "emacs_isearch_backward"
+            ]
+            self.disable_conflicting_commands()
 
         def eventFilter(self, obj, event):
             if event.type() == QEvent.KeyPress:
-                print("### emacs_isearch_EventFilter received key event")
                 key, modifiers = event.key(), event.modifiers()
-                if key == Qt.Key_Return:
-                    self.accept()
-                elif (key == Qt.Key_Escape or
-                      (key == Qt.Key_G and modifiers == Qt.ControlModifier)):
-                    self.reject()
-                elif key == Qt.Key_Backspace:
-                    self.delete()
-                elif key == Qt.Key_S and modifiers == Qt.AltModifier:
-                    self.move("forward")
-                elif key == Qt.Key_R and modifiers == Qt.AltModifier:
-                    self.move("backward")
+                if modifiers == Qt.ControlModifier:
+                    if key == Qt.Key_S:
+                        self.move("forward")
+                    elif key == Qt.Key_R:
+                        self.move("backward")
+                    elif key == Qt.Key_G:
+                        self.reject()
+                    else:
+                        return True
                 else:
-                    self.insert(event.text())
+                    if key == Qt.Key_Return:
+                        self.accept()
+                    elif key == Qt.Key_Backspace:
+                        self.delete()
+                    else:
+                        self.insert(event.text())
                 return True
             else:
                 return False
+
+        def disable_conflicting_commands(self):
+            for command in self.conflicting_commands:
+                self.ext.disable_command(command)
+        
+        def enable_conflicting_commands(self):
+            for command in self.conflicting_commands:
+                self.ext.enable_command(command)
 
         def cleanup(self):
             self.edit.setParent(None)
             self.ext.remove_event_filter(self)
             del self.ext.emacs_isearch_event_filter
+            self.enable_conflicting_commands()
 
         def accept(self):
             self.cleanup()
@@ -373,7 +408,7 @@ class EditorExtension(Extension):
         def move(self, direction):
             text = self.edit.text()
             if text:
-                self.ext.emacs_search(text, "forward")
+                self.ext.emacs_search(text, direction)
             
     #════════════════════════════════════════
     # misc commands
@@ -470,13 +505,14 @@ class EditorExtension(Extension):
     # testing facilities
     
     def test_setup(self):
-        class Filter(QObject):
-            def eventFilter(self, obj, event):
-                if event.type() == QEvent.KeyPress:
-                    print("### Window received key event")
-                return False
-        self.test_event_filter = Filter()
-        self.editor.parentWindow.installEventFilter(self.test_event_filter)
+        if False:
+            class Filter(QObject):
+                def eventFilter(self, obj, event):
+                    if event.type() == QEvent.KeyPress:
+                        print("### Window received key event")
+                    return False
+            self.test_event_filter = Filter()
+            self.editor.parentWindow.installEventFilter(self.test_event_filter)
 
     class test_runCode_Dialog(QDialog):
         class CodeEdit(QTextEdit):
@@ -556,11 +592,11 @@ class EditorExtension(Extension):
 # AddCards
 
 # addcards_commands is a dict which maps a method name to
-# a pair (QKeySequence, QShortcut_or_None)
+# a list pair [QKeySequence, QShortcut_or_None]
 addcards_commands = {}
 def addcards_command(key_seq_str):
     def decorator(func):
-        addcards_commands[func.__name__] = (QKeySequence(key_seq_str), None)
+        addcards_commands[func.__name__] = [QKeySequence(key_seq_str), None]
         return func
     return decorator
 
