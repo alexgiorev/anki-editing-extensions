@@ -71,6 +71,14 @@ function emacs_move(direction, unit){
     }
     let S = emacs_get_selection();
     S.modify(alter, direction, unit);
+    if (alter === "extend" && !emacs_has_selection()){
+        // Sometimes a selection is active, which means that the movement
+        // command should extend the selection, but then the movement results in
+        // the focus and the anchor coinciding, and so if the next command is
+        // also a movement command, it will not "extend", it will "move", due to
+        // the lack of selection. This is a remedy to the problem.
+        emacs_extend_flag = true;
+    }
 }
 function emacs_goto(point){
     let S = emacs_get_selection();
