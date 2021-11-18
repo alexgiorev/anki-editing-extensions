@@ -81,11 +81,11 @@ class Extension:
     # misc
     
     def focus_field(self, N):
-        self.editor.web.setFocus()
+        self.web.setFocus()
         self.eval_js(f"focusField({N})")
 
     def eval_js(self, js):
-        self.editor.web.eval(js)
+        self.web.eval(js)
         
 #════════════════════════════════════════
 # Editor
@@ -104,6 +104,7 @@ def editor_command(key_seq_str):
 class EditorExtension(Extension):
     def __init__(self, editor, bindings):
         self.editor = editor
+        self.web = editor.web
         self.widget = editor.widget
         self.bindings = copy.deepcopy(bindings)
         self.disable_keys()
@@ -122,15 +123,15 @@ class EditorExtension(Extension):
         """The caller is responsible for attaching EVENT_FILTER as an attribute
         of SELF to avoid the garbage collection"""
         # I'm not sure this will work long-term. It is a hack I arrived at after
-        # experimentation. Installing the event filter on the `self.editor.web`
+        # experimentation. Installing the event filter on the `self.web`
         # doesn't work, but on this subwidget it does. The result of the
         # `findChildren` is a singleton list.
-        web_subwidget = self.editor.web.findChildren(QWidget)[0]
+        web_subwidget = self.web.findChildren(QWidget)[0]
         web_subwidget.installEventFilter(event_filter)
 
     def remove_event_filter(self, event_filter):
         """EVENT_FILTER must have been previously installed with SELF.INSTALL_EVENT_FILTER"""
-        web_subwidget = self.editor.web.findChildren(QWidget)[0]
+        web_subwidget = self.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
 
     #════════════════════════════════════════
@@ -175,7 +176,7 @@ class EditorExtension(Extension):
     
     @editor_command("Ctrl+X, C")
     def codify_selection(self):
-        web = self.editor.web
+        web = self.web
         selected_text = web.selectedText()
         # after this IF statement, CODIFIED will store the text to insert
         if selected_text:
@@ -208,95 +209,83 @@ class EditorExtension(Extension):
 
     def emacs_save_point(self):
         self.eval_js("emacs_save_point()")
-
     def emacs_restore_point(self):
         self.eval_js("emacs_restore_point()")
 
     @property
     def emacs_mark_is_active(self):
         return (self.emacs_extend_selection_next_time or
-                self.editor.web.hasSelection())
+                self.web.hasSelection())
         
     @editor_command("Ctrl+Space")
-    def emacs_activate_mark(self):
-        if self.emacs_mark_is_active:
-            self.emacs_collapse_selection()
-        self.emacs_extend_selection_next_time = True
+    def emacs_set_extend_flag(self):
+        self.eval_js("emacs_set_extend_flag()")
 
-    def emacs_deactivate_mark(self):
-        if self.emacs_mark_is_active:
-            self.emacs_collapse_selection()
-            self.emacs_extend_selection_next_time = False
+    def emacs_unset_mark(self):
+        self.eval_js("emacs_unset_extend_flag()")
 
-    def emacs_modify_selection(self, direction, granularity):
-        alter = "extend" if self.emacs_mark_is_active else "move"
-        js = """
-        (function(){
-            const selection = emacs_get_selection();
-            selection.modify("%s", "%s", "%s");
-        })();
-        """ % (alter, direction, granularity)
-        self.eval_js(js)
-        self.emacs_extend_selection_next_time = False
+    def emacs_move(self, direction, unit):
+        direction, unit = map(json.dumps, (direction, unit))
+        self.eval_js(f"emacs_move({direction}, {unit})")
         
     def emacs_collapse_selection(self):
         self.eval_js("emacs_collapse_selection()")
 
     @editor_command("Ctrl+X, H")
     def emacs_mark_all(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.SelectAll)
+        self.web.triggerPageAction(QWebEnginePage.SelectAll)
 
     @editor_command("Ctrl+A")
     def emacs_beginning_of_line(self):
-        self.emacs_modify_selection("backward", "lineboundary")
+        self.emacs_move("backward", "lineboundary")
 
     # Even though Ctrl+E moves to the end of the line by default, the default
     # does not work with the mark, so a custom command is needed.
     @editor_command("Ctrl+E")
     def emacs_end_of_line(self):
-        self.emacs_modify_selection("forward", "lineboundary")
+        self.emacs_move("forward", "lineboundary")
         
     @editor_command("Alt+F")
     def emacs_forward_word(self):
-        self.emacs_modify_selection("forward", "word")
+        self.emacs_move("forward", "word")
         
     @editor_command("Alt+B")
     def emacs_backward_word(self):
-        self.emacs_modify_selection("backward", "word")
+        self.emacs_move("backward", "word")
 
     @editor_command("Ctrl+F")
     def emacs_forward_char(self):
-        self.emacs_modify_selection("forward", "character")
+        self.emacs_move("forward", "character")
 
     @editor_command("Ctrl+B")
     def emacs_backward_char(self):
-        self.emacs_modify_selection("backward", "character")
+        self.emacs_move("backward", "character")
 
     @editor_command("Ctrl+N")
     def emacs_next_line(self):
-        self.emacs_modify_selection("forward", "line")
+        self.emacs_move("forward", "line")
 
     @editor_command("Ctrl+P")
     def emacs_previous_line(self):
-        self.emacs_modify_selection("backward", "line")
+        self.emacs_move("backward", "line")
         
     @editor_command("Ctrl+G")
     def emacs_quit(self):
-        self.emacs_deactivate_mark()
+        self.emacs_unset_mark()
 
     @editor_command("Ctrl+W")
     def emacs_kill_region(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.Cut)
+        self.web.triggerPageAction(QWebEnginePage.Cut)
 
     @editor_command("Alt+W")
     def emacs_copy(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.Copy)
+        self.web.triggerPageAction(QWebEnginePage.Copy)
         self.emacs_collapse_selection()
 
     @editor_command("Ctrl+Y")
     def emacs_yank(self):
         self.emacs_save_point()
-        self.editor.web.triggerPageAction(QWebEnginePage.Paste)
+        self.web.triggerPageAction(QWebEnginePage.Paste)
 
     @editor_command("Ctrl+X, Ctrl+X")
     def emacs_restore_point_cmd(self):
@@ -404,9 +393,6 @@ class EditorExtension(Extension):
             if text:
                 self.ext.emacs_search(text, direction)
 
-    # end of emacs_isearch
-    #════════════════════════════════════════
-    
     #════════════════════════════════════════
     # misc commands
 
@@ -416,15 +402,15 @@ class EditorExtension(Extension):
     
     @editor_command("Ctrl+Alt+B")
     def misc_toggle_bold(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.ToggleBold)
+        self.web.triggerPageAction(QWebEnginePage.ToggleBold)
 
     @editor_command("Ctrl+Alt+I")
     def misc_toggle_italic(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.ToggleItalic)
+        self.web.triggerPageAction(QWebEnginePage.ToggleItalic)
 
     @editor_command("Ctrl+Alt+U")
     def misc_toggle_underline(self):
-        self.editor.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
+        self.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
 
     @editor_command("Ctrl+X, O")
     def misc_copy_for_org_mode(self):
@@ -444,7 +430,7 @@ class EditorExtension(Extension):
         text = text.strip()
         text = re.sub("\n *", " ", text)
         mw.app.clipboard().setText(text)
-        self.editor.web.triggerPageAction(QWebEnginePage.Paste)
+        self.web.triggerPageAction(QWebEnginePage.Paste)
 
     @editor_command("Ctrl+X, Y, O")
     def misc_yank_from_org(self):
@@ -502,14 +488,8 @@ class EditorExtension(Extension):
     # testing facilities
     
     def test_setup(self):
-        if False:
-            class Filter(QObject):
-                def eventFilter(self, obj, event):
-                    if event.type() == QEvent.KeyPress:
-                        print("### Window received key event")
-                    return False
-            self.test_event_filter = Filter()
-            self.editor.parentWindow.installEventFilter(self.test_event_filter)
+        self.web.selectionChanged.connect(
+            lambda: print("### SELECTION CHANGED"))
 
     class test_runCode_Dialog(QDialog):
         class CodeEdit(QTextEdit):
@@ -601,6 +581,7 @@ class AddCardsExtension(Extension):
     def __init__(self, addcards, bindings):
         self.addcards = self.widget = addcards
         self.editor = addcards.editor
+        self.web = self.editor.web
         self.bindings = copy.deepcopy(bindings)
         self.setup_shortcuts()
         # extensions setup
@@ -687,7 +668,7 @@ class AddCardsExtension(Extension):
         # must start at 1
         highest = max(1, highest)
         js = "wrap('{{c%d::', '}}');" % highest 
-        self.editor.web.evalWithCallback(js, self.typeauto_onCloze_callback)
+        self.web.evalWithCallback(js, self.typeauto_onCloze_callback)
 
     def typeauto_onCloze_callback(self, *args):
         # change the model
@@ -698,8 +679,8 @@ class AddCardsExtension(Extension):
         # after this closing bracket. It will fail if }} is used before the
         # actual closing bracket, but the current approach seems to be a good
         # enough heuristic.
-        self.editor.web.findText("}}")
-        self.editor.web.findText("")
+        self.web.findText("}}")
+        self.web.findText("")
         self.eval_js(
             """emacs_get_selection().collapseToEnd()""")
         

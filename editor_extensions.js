@@ -15,19 +15,13 @@ function emacs_restore_point(){
     }
 }
 
-// utils-selection
-//════════════════════════════════════════
-
 function emacs_get_selection(){
     return getCurrentField().activeInput.getRootNode().getSelection();
 }        
 
 function emacs_collapse_selection(){
-    if (emacs_has_selection()) {
-        let S = emacs_get_selection();
-        emacs_selection_changed.suppress = true;
-        S.collapse(S.focusNode, S.focusOffset);
-    }
+    let S = emacs_get_selection();
+    S.collapse(S.focusNode, S.focusOffset);
 }
 
 function emacs_has_selection(){
@@ -36,8 +30,6 @@ function emacs_has_selection(){
     let S = emacs_get_selection();
     return !(S.focusNode === S.anchorNode && S.focusOffset === S.anchorOffset);
 }
-
-//════════════════════════════════════════
 
 function emacs_get_text_nodes(elem) {
     elem = elem ?? getCurrentField().activeInput;
@@ -58,53 +50,38 @@ function emacs_get_text_nodes(elem) {
 
 // movement
 //════════════════════════════════════════
+// this variable controls whether the next movement command is going to create a
+// selection or do nothing but move the cursor.
+let emacs_extend_flag = false;
 
-let emacs_mark = null;
-
-function emacs_set_mark(){
-    // this function is called when the user presses CTRL+SPACE
-    let S = emacs_get_selection();
-    emacs_mark = [S.focusNode, S.focusOffset];
-    emacs_collapse_selection();
+function emacs_set_extend_flag(){
+    emacs_collapse_selection()
+    emacs_extend_flag = true;
 }
-
-function emacs_unset_mark(){
-    if (emacs_mark){
-        emacs_mark = null;
-        emacs_collapse_selection();
-    }
+function emacs_unset_extend_flag(){
+    emacs_collapse_selection()
+    emacs_extend_flag = false;
 }
-
-function emacs_selection_changed(){
-    // For some reason the "select" event is not triggered when the selection
-    // changes. The workaround for now is to rely on PyQt's .selectionChanged
-    // signal. I have installed a slot in the Python code which invokes this
-    // function.
-    //════════════════════════════════════════
-    // This function could be called either because some code I wrote modifies
-    // the selection or because of the usual selection mechanisms (e.g. double
-    // clicking on a word). When I change the selection myself, I set this flag
-    // so that this function doesn't do anything.
-    if (emacs_selection_changed.suppress){
-        emacs_selection_changed.suppress = false;
-    } else {
-        let S = emacs_get_selection();
-        if (emacs_has_selection()) {
-            emacs_mark = [S.anchorNode, S.anchorOffset];
-        } else {
-            emacs_mark = null;
-        }
-    }
-}
-emacs_selection_changed.suppress = false;
-
 function emacs_move(direction, unit){
-    let alter = emacs_has_selection() ? "extend": "move";
-    
+    let alter;
+    if (emacs_has_selection() || emacs_extend_flag){
+        alter = "extend"; emacs_extend_flag = false;
+    } else {
+        alter = "move";
+    }
+    let S = emacs_get_selection();
+    S.modify(alter, direction, unit);
 }
-
-// emacs_search
-//════════════════════════════════════════
+function emacs_goto(point){
+    let S = emacs_get_selection();
+    if (emacs_has_selection()) {
+        S.setBaseAndExtent(point[0], point[1], S.anchorNode, S.anchorOffset);
+    } else if (emacs_extend_flag) {
+        S.setBaseAndExtent(point[0], point[1], S.focusNode, S.focusOffset);
+    } else {
+        S.collapse(point[0], point[1]);
+    }
+}
 function emacs_search(substr, direction){
     substr = substr.toLowerCase();
     const selection = emacs_get_selection();
@@ -147,7 +124,7 @@ function emacs_search(substr, direction){
     }
     //════════════════════════════════════════
     if (found){
-        selection.setBaseAndExtent(focusNode, focusOffset, focusNode, focusOffset);
+        emacs_goto([focusNode, focusOffset]);
     }
     return found;
 }
