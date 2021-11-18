@@ -133,12 +133,6 @@ class EditorExtension(Extension):
         web_subwidget = self.editor.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
 
-    def emacs_save_point(self):
-        self.eval_js("emacs_save_point()")
-
-    def emacs_restore_point(self):
-        self.eval_js("emacs_restore_point()")
-
     #════════════════════════════════════════
     # disabling keys
     
@@ -211,7 +205,12 @@ class EditorExtension(Extension):
     # too many conflicts.
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
-        self.emacs_first_move_after_mark = None
+
+    def emacs_save_point(self):
+        self.eval_js("emacs_save_point()")
+
+    def emacs_restore_point(self):
+        self.eval_js("emacs_restore_point()")
 
     @property
     def emacs_mark_is_active(self):
@@ -222,7 +221,6 @@ class EditorExtension(Extension):
     def emacs_activate_mark(self):
         if self.emacs_mark_is_active:
             self.emacs_collapse_selection()
-        self.emacs_first_move_after_mark = None
         self.emacs_extend_selection_next_time = True
 
     def emacs_deactivate_mark(self):
@@ -239,20 +237,10 @@ class EditorExtension(Extension):
         })();
         """ % (alter, direction, granularity)
         self.eval_js(js)
-        if self.emacs_mark_is_active and self.emacs_first_move_after_mark is None:
-            self.emacs_first_move_after_mark = direction
         self.emacs_extend_selection_next_time = False
         
     def emacs_collapse_selection(self):
-        # This is a heuristic approach based on the direction of the first
-        # movement command after the mark is set. I tried using
-        # selection.anchorOffset and selection.focusOffset but for some reason
-        # it didn't work.
-        js = ("emacs_get_selection().collapseToEnd()"
-              if self.emacs_first_move_after_mark == "forward"
-              else "emacs_get_selection().collapseToStart()")
-        self.eval_js(js)
-        self.emacs_first_move_after_mark = None
+        self.eval_js("emacs_collapse_selection()")
 
     @editor_command("Ctrl+X, H")
     def emacs_mark_all(self):
