@@ -1,6 +1,7 @@
 import json
 import html
 import re
+import copy
 import os.path
 import sys
 import unicodedata
@@ -104,7 +105,7 @@ class EditorExtension(Extension):
     def __init__(self, editor, bindings):
         self.editor = editor
         self.widget = editor.widget
-        self.bindings = bindings
+        self.bindings = copy.deepcopy(bindings)
         self.disable_keys()
         self.setup_shortcuts()
         #════════════════════
@@ -612,7 +613,7 @@ class AddCardsExtension(Extension):
     def __init__(self, addcards, bindings):
         self.addcards = self.widget = addcards
         self.editor = addcards.editor
-        self.bindings = bindings
+        self.bindings = copy.deepcopy(bindings)
         self.setup_shortcuts()
         # extensions setup
         self.state_setup()
