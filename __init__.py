@@ -83,6 +83,9 @@ class Extension:
         self.editor.web.setFocus()
         self.eval_js(f"focusField({N})")
 
+    def eval_js(self, js):
+        self.editor.web.eval(js)
+        
 #════════════════════════════════════════
 # Editor
 
@@ -128,9 +131,6 @@ class EditorExtension(Extension):
         """EVENT_FILTER must have been previously installed with SELF.INSTALL_EVENT_FILTER"""
         web_subwidget = self.editor.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
-
-    def eval_js(self, js):
-        self.editor.web.eval(js)
 
     def emacs_save_point(self):
         self.eval_js("emacs_save_point()")
@@ -306,8 +306,13 @@ class EditorExtension(Extension):
 
     @editor_command("Ctrl+Y")
     def emacs_yank(self):
+        self.emacs_save_point()
         self.editor.web.triggerPageAction(QWebEnginePage.Paste)
 
+    @editor_command("Ctrl+X, Ctrl+X")
+    def emacs_restore_point_cmd(self):
+        self.emacs_restore_point()
+        
     #════════════════════════════════════════
     # emacs_search
     
@@ -409,7 +414,10 @@ class EditorExtension(Extension):
             text = self.edit.text()
             if text:
                 self.ext.emacs_search(text, direction)
-            
+
+    # end of emacs_isearch
+    #════════════════════════════════════════
+    
     #════════════════════════════════════════
     # misc commands
 
