@@ -17,13 +17,14 @@ from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
 # Extension base class
 class Extension:
     #════════════════════════════════════════
-    # shortcuts
+    # commands, key sequences and shortcuts
 
     def setup_shortcuts(self):
         self.disable_used_keys()
-        for command_name, key_seq in self.bindings.items():
-            method = getattr(self, command_name)
-            shortcut = QShortcut(key_seq, self.widget, activated=method)
+        for command_name, (key_seq, shortcut) in self.bindings.items():
+            if shortcut is None:
+                method = getattr(self, command_name)
+                shortcut = QShortcut(key_seq, self.widget, activated=method)
 
     def disable_used_keys(self):
         attr = f"{self}_did_disable_used_keys"
@@ -32,7 +33,7 @@ class Extension:
             return
         shortcuts = self.editor.parentWindow.findChildren(QShortcut)
         actions = self.editor.parentWindow.findChildren(QAction)
-        for key_seq in self.bindings.values():
+        for (key_seq, shortcut) in self.bindings.values():
             for shortcut in shortcuts:
                 if self.qkeyseqs_equal(shortcut.key(), key_seq):
                     # remove the shortcut
@@ -57,7 +58,8 @@ class Extension:
         return True
 
     #════════════════════════════════════════
-        
+    # misc
+    
     def focus_field(self, N):
         self.editor.web.setFocus()
         self.eval_js(f"focusField({N})")
@@ -65,12 +67,14 @@ class Extension:
 #════════════════════════════════════════
 # Editor
 
+# editor_commands is a dict which maps a method name to
+# a pair (QKeySequence, QShortcut_or_None)
 editor_commands = {}
 def editor_command(key_seq_str):
     def decorator(func):
         # Bind to the function name instead of the function so that
         # different methods are created for different instances
-        editor_commands[func.__name__] = QKeySequence(key_seq_str)
+        editor_commands[func.__name__] = (QKeySequence(key_seq_str), None)
         return func
     return decorator
 
@@ -550,12 +554,13 @@ class EditorExtension(Extension):
 
 #════════════════════════════════════════
 # AddCards
+
+# addcards_commands is a dict which maps a method name to
+# a pair (QKeySequence, QShortcut_or_None)
 addcards_commands = {}
 def addcards_command(key_seq_str):
     def decorator(func):
-        # Bind to the function name instead of the function so that
-        # different methods are created for different instances
-        addcards_commands[func.__name__] = QKeySequence(key_seq_str)
+        addcards_commands[func.__name__] = (QKeySequence(key_seq_str), None)
         return func
     return decorator
 
