@@ -479,6 +479,11 @@ class EditorExtension(Extension):
                     self.next()
                 else:
                     super().keyPressEvent(event)
+            elif modifiers == Qt.AltModifier | Qt.ControlModifier:
+                if key == Qt.Key_O:
+                    self.insertPlainText("console.log(")
+                else:
+                    super().keyPressEvent(event)
             else:
                 super().keyPressEvent(event)
 
