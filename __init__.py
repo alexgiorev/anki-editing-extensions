@@ -114,7 +114,7 @@ class EditorExtension(Extension):
         self.setup_js()
         self.emacs_setup()
         self.code_highlight_setup()
-        self.test_setup()
+        self.misc_setup()
 
     #════════════════════════════════════════
     # utils
@@ -229,7 +229,7 @@ class EditorExtension(Extension):
         self.eval_js(f"emacs_move({direction}, {unit})")
         
     def emacs_collapse_selection(self):
-        self.eval_js("emacs_collapse_selection()")
+        self.eval_js("emacs_selection().collapse_to_focus()")
 
     @editor_command("Ctrl+X, H")
     def emacs_mark_all(self):
@@ -396,12 +396,15 @@ class EditorExtension(Extension):
     #════════════════════════════════════════
     # misc commands
 
-    # Since now I'm using Ctrl+B for something different, I want to change the
-    # bold key. But for symmetry I also want to change the italic and underline
-    # keys.
-    
+    def misc_setup(self):
+        self.misc_python_history = []
+        self.misc_js_history = []
+
     @editor_command("Ctrl+Alt+B")
     def misc_toggle_bold(self):
+        # Since now I'm using Ctrl+B for something different, I want to change the
+        # bold key. But for symmetry I also want to change the italic and underline
+        # keys.        
         self.web.triggerPageAction(QWebEnginePage.ToggleBold)
 
     @editor_command("Ctrl+Alt+I")
@@ -447,6 +450,113 @@ class EditorExtension(Extension):
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
 
+    class misc_CodeEdit(QTextEdit):
+        def __init__(self, ext, history, parent):
+            super().__init__(parent)
+            self.ext = ext
+            self.history = history
+            self.history_index = len(history) - 1
+            # setup the font
+            doc = self.document();
+            font = doc.defaultFont();
+            font.setFamily("Ubuntu Mono");
+            font.setPointSize(15)
+            doc.setDefaultFont(font);
+
+        def keyPressEvent(self, event):
+            key, modifiers = event.key(), event.modifiers()
+            if modifiers == Qt.ControlModifier:
+                if key == Qt.Key_Return:
+                    self.parent().accept()
+                elif key == Qt.Key_E:
+                    self.eval(self.toPlainText())
+                else:
+                    super().keyPressEvent(event)
+            elif modifiers == Qt.AltModifier:
+                if key == Qt.Key_P:
+                    self.previous()
+                elif key == Qt.Key_N:
+                    self.next()
+                else:
+                    super().keyPressEvent(event)
+            else:
+                super().keyPressEvent(event)
+
+        def previous(self):
+            if self.history:
+                self.history_index = (self.history_index-1) % len(self.history)
+                self.show_historical()
+        def next(self):
+            if self.history:
+                self.history_index = (self.history_index+1) % len(self.history)
+                self.show_historical()
+        def show_historical(self):
+            text = self.history[self.history_index]
+            self.setText(text)
+
+        def eval(self, text):
+            self.history.append(text)
+            self.history_index = len(self.history)-1
+
+    class misc_RunCodeDialog(QDialog):
+        def __init__(self, ext, lang):
+            super().__init__(ext.editor.parentWindow)
+            self.code_edit = None
+            if lang in ("javascript", "js"):
+                self.code_edit = ext.misc_JavaScriptEdit(ext, self)
+            elif lang in ("python", "py"):
+                self.code_edit = ext.misc_PythonEdit(ext, self)
+            else:
+                raise ValueError(f"Invalid language: \"{lang}\"")
+            layout = QVBoxLayout()
+            layout.addWidget(self.code_edit)
+            self.setLayout(layout)
+
+        def run(self):
+            self.exec_()
+        
+    class misc_JavaScriptEdit(misc_CodeEdit):
+        def __init__(self, ext, parent):
+            super().__init__(ext, ext.misc_js_history, parent)
+        def eval(self, text):
+            super().eval(text)
+            self.ext.eval_js(text)
+
+    class misc_PythonEdit(misc_CodeEdit):
+        def __init__(self, ext, parent):
+            super().__init__(ext, ext.misc_python_history, parent)
+        def eval(self, text):
+            super().eval(text)
+            exec(text, globals(), {"ext": self.ext})
+
+    @editor_command("Ctrl+X, T, J")
+    def misc_run_JS(self):
+        """A rudimentary utility which enables one to run JS in the editor."""
+        dialog = self.misc_RunCodeDialog(self, "javascript")
+        dialog.run()
+        dialog.setParent(None)
+
+    @editor_command("Ctrl+X, T, F")
+    def misc_run_JS_from_file(self):
+        FILE = "/home/alex/scratch/scratch.js"
+        js = open(FILE).read()
+        self.eval_js(js)
+        print(f"### Executed \"{os.path.basename(FILE)}\"")
+
+    @editor_command("Ctrl+X, T, P")
+    def misc_run_Python(self):
+        """A rudimentary utility which enables one to run JS in the editor."""
+        dialog = self.misc_RunCodeDialog(self, "python")
+        dialog.run()
+        dialog.setParent(None)
+
+    @editor_command("Ctrl+X, T, 1")
+    def misc_command1(self):
+        pass
+    @editor_command("Ctrl+X, T, 2")
+    def misc_command2(self):
+        pass
+        
     #════════════════════════════════════════
     # code highlight addon extension
     
@@ -483,87 +593,6 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, L, S")
     def code_highlight_SQL(self):
         self.code_highlight_using("SQL")
-
-    #════════════════════════════════════════
-    # testing facilities
-    
-    def test_setup(self):
-        self.web.selectionChanged.connect(
-            lambda: print("### SELECTION CHANGED"))
-
-    class test_runCode_Dialog(QDialog):
-        class CodeEdit(QTextEdit):
-            def __init__(self, ext, parent):
-                super().__init__(parent)
-                self.ext = ext
-                # setup the font
-                doc = self.document();
-                font = doc.defaultFont();
-                font.setFamily("Ubuntu Mono");
-                font.setPointSize(15)
-                doc.setDefaultFont(font);
-                
-            def keyPressEvent(self, event):
-                key, modifiers = event.key(), event.modifiers()
-                if modifiers == Qt.ControlModifier:
-                    if key == Qt.Key_Return:
-                        self.parent().accept()
-                    elif key == Qt.Key_E:
-                        self.parent().eval(self.toPlainText())
-                    else:
-                        super().keyPressEvent(event)
-                else:
-                    super().keyPressEvent(event)
-
-        def __init__(self, ext):
-            super().__init__(ext.editor.parentWindow)
-            self.ext = ext
-            self.code_edit = self.CodeEdit(ext, self)
-            layout = QVBoxLayout()
-            layout.addWidget(self.code_edit)
-            self.setLayout(layout)
-
-        def run(self):
-            self.exec_()
-
-        def eval(self, text):
-            raise NotImplementedError
-        
-    class test_run_JS_Dialog(test_runCode_Dialog):
-        def eval(self, text):
-            self.ext.editor.web.eval(text)
-
-    class test_run_Python_Dialog(test_runCode_Dialog):
-        def eval(self, text):
-            exec(text, globals(), {"ext": self.ext})
-
-    @editor_command("Ctrl+X, T, J")
-    def test_run_JS(self):
-        """A rudimentary utility which enables one to run JS in the editor."""
-        dialog = self.test_run_JS_Dialog(self)
-        dialog.run()
-        dialog.setParent(None)
-
-    @editor_command("Ctrl+X, T, F")
-    def test_run_JS_from_file(self):
-        FILE = "/home/alex/scratch/scratch.js"
-        js = open(FILE).read()
-        self.eval_js(js)
-        print(f"### Executed \"{os.path.basename(FILE)}\"")
-
-    @editor_command("Ctrl+X, T, P")
-    def test_run_Python(self):
-        """A rudimentary utility which enables one to run JS in the editor."""
-        dialog = self.test_run_Python_Dialog(self)
-        dialog.run()
-        dialog.setParent(None)
-
-    @editor_command("Ctrl+X, T, 1")
-    def test_command1(self):
-        pass
-    @editor_command("Ctrl+X, T, 2")
-    def test_command2(self):
-        pass
 
 #════════════════════════════════════════
 # AddCards
