@@ -3,34 +3,44 @@
 let emacs_saved_point;
 
 function emacs_save_point(){
-    let selection = emacs_get_selection();
+    let selection = emacs_selection();
     emacs_saved_point = [selection.focusNode, selection.focusOffset];
 }
-
 function emacs_restore_point(){
     if (emacs_saved_point){
-        let selection = emacs_get_selection();
+        let selection = emacs_selection();
         [node, offset] = emacs_saved_point;
-        selection.setBaseAndExtent(node, offset, node, offset);
+        selection.collapse(node, offset);
     }
 }
-
-function emacs_get_selection(){
-    return getCurrentField().activeInput.getRootNode().getSelection();
-}        
-
-function emacs_collapse_selection(){
-    let S = emacs_get_selection();
-    S.collapse(S.focusNode, S.focusOffset);
+function emacs_selection() {
+    let S = getCurrentField().activeInput.getRootNode().getSelection();
+    let flag = Symbol.for("emacs_Selection");
+    if (!(flag in S)){
+        S[flag] = true;
+        for (let method_name of Object.keys(emacs_Selection_methods)) {
+            S[method_name] = emacs_Selection_methods[method_name];
+        }
+    }
+    return S;
 }
-
-function emacs_has_selection(){
-    // For some reason SELECTION.isCollapsed doesn't work, it always returns
-    // true, even when there is an active region.
-    let S = emacs_get_selection();
-    return !(S.focusNode === S.anchorNode && S.focusOffset === S.anchorOffset);
+// some extra methods to add to the Selection object
+// returned by emacs_selection()
+emacs_Selection_methods = {
+    is_collapsed() {
+        // This is necessary because for some reason SELECTION.isCollapsed
+        // doesn't work, it always returns true, even when there is an active
+        // region.
+        return (this.focusNode === this.anchorNode &&
+                this.focusOffset === this.anchorOffset);
+    },
+    collapse_to_focus() {
+        this.collapse(this.focusNode, this.focusOffset);
+    },
+    get_focus() {
+        return [this.focusNode, this.focusOffset];
+    }
 }
-
 function emacs_get_text_nodes(elem) {
     elem = elem ?? getCurrentField().activeInput;
     var textNodes = [];
@@ -47,7 +57,6 @@ function emacs_get_text_nodes(elem) {
     }
     return textNodes;
 }
-
 // movement
 //════════════════════════════════════════
 // this variable controls whether the next movement command is going to create a
@@ -55,23 +64,23 @@ function emacs_get_text_nodes(elem) {
 let emacs_extend_flag = false;
 
 function emacs_set_extend_flag(){
-    emacs_collapse_selection()
+    emacs_selection().collapse_to_focus()
     emacs_extend_flag = true;
 }
 function emacs_unset_extend_flag(){
-    emacs_collapse_selection()
+    emacs_selection().collapse_to_focus()
     emacs_extend_flag = false;
 }
 function emacs_move(direction, unit){
     let alter;
-    if (emacs_has_selection() || emacs_extend_flag){
+    let S = emacs_selection();
+    if (!S.is_collapsed() || emacs_extend_flag){
         alter = "extend"; emacs_extend_flag = false;
     } else {
         alter = "move";
     }
-    let S = emacs_get_selection();
     S.modify(alter, direction, unit);
-    if (alter === "extend" && !emacs_has_selection()){
+    if (alter === "extend" && S.is_collapsed()){
         // Sometimes a selection is active, which means that the movement
         // command should extend the selection, but then the movement results in
         // the focus and the anchor coinciding, and so if the next command is
@@ -81,18 +90,18 @@ function emacs_move(direction, unit){
     }
 }
 function emacs_goto(point){
-    let S = emacs_get_selection();
-    if (emacs_has_selection()) {
-        S.setBaseAndExtent(point[0], point[1], S.anchorNode, S.anchorOffset);
+    let S = emacs_selection();
+    if (!S.is_collapsed()) {
+        S.setBaseAndExtent(S.anchorNode, S.anchorOffset, point[0], point[1]);
     } else if (emacs_extend_flag) {
-        S.setBaseAndExtent(point[0], point[1], S.focusNode, S.focusOffset);
+        S.setBaseAndExtent(S.focusNode, S.focusOffset, point[0], point[1]);
     } else {
         S.collapse(point[0], point[1]);
     }
 }
 function emacs_search(substr, direction){
     substr = substr.toLowerCase();
-    const selection = emacs_get_selection();
+    const selection = emacs_selection();
     const current_node = selection.focusNode;
     const current_index = selection.focusOffset;
     const current_text = current_node.textContent.toLowerCase()
