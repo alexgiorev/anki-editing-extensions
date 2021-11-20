@@ -39,6 +39,18 @@ emacs_Selection_methods = {
     },
     get_focus() {
         return [this.focusNode, this.focusOffset];
+    },
+    focus_text(){
+        // If the focus node is a text node, it is returned. Otherwise, it
+        // returns a text node child of the focus node. If the focus offset is
+        // zero, the first text leaf is returned, and otherwise the last.
+        if (this.focusNode.nodeType === Node.TEXT_NODE) {
+            return this.focusNode;
+        } else {
+            if (this.focusOffset === 0) {
+                
+            }
+        }
     }
 }
 function emacs_get_text_nodes(elem) {
@@ -125,7 +137,10 @@ function emacs_search(substr, direction){
             }
         }
     } else {
-        focusOffset = current_text.lastIndexOf(substr, current_index-1);
+        focusOffset = (current_index > 0 ?
+                       focusOffset = current_text.lastIndexOf(
+                           substr, current_index-1):
+                       -1)
         if (focusOffset != -1){
             found = true; focusNode = current_node;
         } else {

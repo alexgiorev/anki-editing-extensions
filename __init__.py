@@ -166,10 +166,11 @@ class EditorExtension(Extension):
     #════════════════════════════════════════
     # JavaScript setup
     def setup_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "editor_extensions.js")
-        text = open(path).read()
-        self.eval_js(text)
+        PATHS = ["editor_extensions.js", "editor_utils.js"]
+        for path in PATHS:
+            path = os.path.join(os.path.dirname(__file__), path)
+            text = open(path).read()
+            self.eval_js(text)
         
     #════════════════════════════════════════
     # codify_selection
