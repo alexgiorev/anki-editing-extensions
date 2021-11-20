@@ -713,10 +713,7 @@ class AddCardsExtension(Extension):
         # after this closing bracket. It will fail if }} is used before the
         # actual closing bracket, but the current approach seems to be a good
         # enough heuristic.
-        self.web.findText("}}")
-        self.web.findText("")
-        self.eval_js(
-            """emacs_get_selection().collapseToEnd()""")
+        self.eval_js("emacs_search('}}', 'forward')")
         
     def typeauto_switch_to_basic(self, *args):
         basic_id = mw.col.models.id_for_name("Basic")
