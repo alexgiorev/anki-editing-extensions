@@ -1,4 +1,4 @@
-// utils
+// emacs_utils
 //════════════════════════════════════════
 let emacs_saved_point;
 
@@ -114,8 +114,7 @@ function emacs_goto(point){
 function emacs_search(substr, direction){
     substr = substr.toLowerCase();
     const selection = emacs_selection();
-    const current_node = selection.focusNode;
-    const current_index = selection.focusOffset;
+    const [current_node, current_offset] = emacs_search_get_current(direction);
     const current_text = current_node.textContent.toLowerCase()
     const text_nodes = emacs_get_text_nodes();
     const node_index = text_nodes.indexOf(current_node);
@@ -123,7 +122,7 @@ function emacs_search(substr, direction){
     //════════════════════════════════════════
     let found = false, focusNode, focusOffset;
     if (direction == "forward"){
-        focusOffset = current_text.indexOf(substr, current_index);
+        focusOffset = current_text.indexOf(substr, current_offset);
         if (focusOffset != -1){
             found = true; focusNode = current_node; focusOffset += substr.length;
         } else {
@@ -137,9 +136,9 @@ function emacs_search(substr, direction){
             }
         }
     } else {
-        focusOffset = (current_index > 0 ?
+        focusOffset = (current_offset > 0 ?
                        focusOffset = current_text.lastIndexOf(
-                           substr, current_index-1):
+                           substr, current_offset-1):
                        -1)
         if (focusOffset != -1){
             found = true; focusNode = current_node;
@@ -159,4 +158,33 @@ function emacs_search(substr, direction){
         emacs_goto([focusNode, focusOffset]);
     }
     return found;
+}
+function emacs_search_get_current(direction){
+    /* This function is necessary because the selection is not always on a Text node */
+    let selection = emacs_selection();
+    let [node, offset] = [selection.focusNode, selection.focusOffset];
+    if (node.nodeType === Node.TEXT_NODE)
+        return [node, offset];
+    // try to get a descendant
+    let nodes = [...text_nodes(node)];
+    if (nodes){
+        if (offset > 0){
+            node = nodes[nodes.length-1];
+            offset = node.length;
+        } else {
+            node = nodes[0];
+            offset = 0;
+        }
+        return [node, offset]
+    }
+    // no descendants, try to get the previous or next
+    // Text node in the document body
+    let prev, next;
+    if ((prev = prev_text_node(node, document.body)) !== null){
+        return [prev, prev.textContent.length-1];
+    } else if ((next = next_text_node(node, document.body)) !== null) {
+        return [next, 0];
+    } else {
+        return null;
+    }
 }
