@@ -166,9 +166,11 @@ class EditorExtension(Extension):
     #════════════════════════════════════════
     # JavaScript setup
     def setup_js(self):
-        PATHS = ["editor_extensions.js", "editor_utils.js"]
-        for path in PATHS:
-            path = os.path.join(os.path.dirname(__file__), path)
+        dirname = os.path.dirname(__file__)
+        sources = (source for source in os.listdir(dirname)
+                   if re.match(r"editor_.+\.js", source))
+        for source in sources:
+            path = os.path.join(os.path.dirname(__file__), source)
             text = open(path).read()
             self.eval_js(text)
         
