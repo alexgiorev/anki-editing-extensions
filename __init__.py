@@ -342,7 +342,10 @@ class EditorExtension(Extension):
                     elif key == Qt.Key_G:
                         self.reject()
                     else:
-                        return True
+                        if key != Qt.Key_Control:
+                            self.accept()
+                            return False
+                    return True
                 else:
                     if key == Qt.Key_Return:
                         self.accept()
@@ -350,7 +353,7 @@ class EditorExtension(Extension):
                         self.delete()
                     else:
                         self.insert(event.text())
-                return True
+                    return True
             else:
                 return False
 
@@ -670,7 +673,7 @@ class AddCardsExtension(Extension):
             # move the cursor to the end of the line
             js = """
             (function () {
-                const selection = emacs_get_selection();
+                const selection = getSelection();
                 selection.modify("move", "forward", "line");
             })();
             """
@@ -876,3 +879,4 @@ def add_cards_did_init(addcards):
 
 gui_hooks.editor_did_init.append(editor_did_init)
 gui_hooks.add_cards_did_init.append(add_cards_did_init)
+
