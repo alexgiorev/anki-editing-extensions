@@ -405,6 +405,14 @@ class EditorExtension(Extension):
     def misc_setup(self):
         self.misc_python_history = []
         self.misc_js_history = []
+        #════════════════════
+        # class EventFilter(QObject):
+        #     def eventFilter(self, obj, event):
+        #         if event.type() == QEvent.KeyPress:
+        #             print("### PRESSED: " + event.text())
+        #         return False
+        # ef = self.misc_event_filter = EventFilter()
+        # self.editor.parentWindow.installEventFilter(ef)
 
     @editor_command("Ctrl+Alt+B")
     def misc_toggle_bold(self):
@@ -741,7 +749,7 @@ class AddCardsExtension(Extension):
         notetype_id = self.addcards.notetype_chooser.selected_notetype_id
         deck_id = self.addcards.deck_chooser.selected_deck_id
         note = self.editor.note
-        fields = note.fields[:]
+        fields = note.items()
         tags = note.tags[:]
         prefix = "" if self.prefix is None else self.prefix
         return dict(notetype_id=notetype_id,
@@ -761,15 +769,16 @@ class AddCardsExtension(Extension):
             return
         self.state_set(self.state_stored)
         
-    def state_set(self, s):
-        self.addcards.notetype_chooser.selected_notetype_id = s["notetype_id"]
-        self.addcards.deck_chooser.selected_deck_id = s["deck_id"]
+    def state_set(self, state):
+        self.addcards.notetype_chooser.selected_notetype_id = state["notetype_id"]
+        self.addcards.deck_chooser.selected_deck_id = state["deck_id"]
         note = self.editor.note
-        note.fields = s["fields"][:]
-        note.tags = s["tags"][:]
+        for field_name, field_text in state["fields"].items():
+            note[field_name] = field_text
+        note.tags = state["tags"][:]
         self.editor.loadNote()
         self.state_update_tags_UI()
-        self.prefix_change(s["prefix"])
+        self.prefix_change(state["prefix"])
         self.prefix_load()
         self.focus_field(0)
         
