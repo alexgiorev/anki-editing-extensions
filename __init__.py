@@ -749,7 +749,7 @@ class AddCardsExtension(Extension):
         notetype_id = self.addcards.notetype_chooser.selected_notetype_id
         deck_id = self.addcards.deck_chooser.selected_deck_id
         note = self.editor.note
-        fields = note.items()
+        fields = dict(note.items())
         tags = note.tags[:]
         prefix = "" if self.prefix is None else self.prefix
         return dict(notetype_id=notetype_id,
