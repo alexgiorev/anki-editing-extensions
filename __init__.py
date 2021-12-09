@@ -456,7 +456,8 @@ class EditorExtension(Extension):
         regexes = {r"/(.+?)/": r"<i>\1</i>",
                    r"\*(.+?)\*": r"<b>\1</b>",
                    r"_(.+?)_": r"<u>\1</u>",
-                   r"~(.+?)~": r"<code>\1</code>&nbsp;"}        
+                   r"~(.+?)~": r"<code>\1</code>&nbsp;",
+                   r"=(.+?)=": r"<code>\1</code>&nbsp;"}        
         text = mw.app.clipboard().text()
         for regex, sub in regexes.items():
             text = re.sub(regex, sub, text)
