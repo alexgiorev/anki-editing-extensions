@@ -8,7 +8,7 @@ function misc_bold_to_code(){
     for(let elt of root.querySelectorAll("b")){
         const parent = elt.parentNode;
         const text = elt.textContent;
-        const code = root.createElement("CODE");
+        const code = document.createElement("CODE");
         code.textContent = text;
         elt.after(code);
         parent.removeChild(elt);

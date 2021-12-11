@@ -576,7 +576,11 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, T, 2")
     def misc_command2(self):
         pass
-        
+
+    @editor_command("Ctrl+X, B")
+    def misc_bold_to_code(self):
+        self.eval_js("misc_bold_to_code()")
+    
     #════════════════════════════════════════
     # code highlight addon extension
     
