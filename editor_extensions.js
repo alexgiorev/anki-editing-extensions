@@ -1,3 +1,19 @@
+// misc
+//════════════════════════════════════════
+function current_root(){
+    return getCurrentField().activeInput.getRootNode();
+}
+function misc_bold_to_code(){
+    const root = current_root();
+    for(let elt of root.querySelectorAll("b")){
+        const parent = elt.parentNode;
+        const text = elt.textContent;
+        const code = root.createElement("CODE");
+        code.textContent = text;
+        elt.after(code);
+        parent.removeChild(elt);
+    }
+}
 // emacs_utils
 //════════════════════════════════════════
 let emacs_saved_point;
@@ -14,7 +30,7 @@ function emacs_restore_point(){
     }
 }
 function emacs_selection() {
-    let S = getCurrentField().activeInput.getRootNode().getSelection();
+    let S = current_root().getSelection();
     let flag = Symbol.for("emacs_Selection");
     if (!(flag in S)){
         S[flag] = true;
@@ -114,7 +130,9 @@ function emacs_goto(point){
 function emacs_search(substr, direction){
     substr = substr.toLowerCase();
     const selection = emacs_selection();
-    const [current_node, current_offset] = emacs_search_get_current(direction);
+    const current = emacs_search_get_current(direction);
+    if (current === null) return false;
+    const [current_node, current_offset] = current;
     const current_text = current_node.textContent.toLowerCase()
     const text_nodes = emacs_get_text_nodes();
     const node_index = text_nodes.indexOf(current_node);
