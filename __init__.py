@@ -663,7 +663,7 @@ class AddCardsExtension(Extension):
         self.prefix_load(old=old)
         
     def prefix_change(self, new):
-        if new is None or new.isspace():
+        if not new or new.isspace():
             self.prefix = None
         else:
             self.prefix = new
