@@ -673,6 +673,7 @@ class AddCardsExtension(Extension):
         prefix = self.prefix
         if prefix is not None:
             prefix = "<code>"+prefix+"</code>: "
+            old = "<code>"+old+"</code>: "
             note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):
