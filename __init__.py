@@ -14,10 +14,10 @@ from aqt.studydeck import StudyDeck
 from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
     
 
-#════════════════════════════════════════
+# ════════════════════════════════════════
 # Extension base class
 class Extension:
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # commands, key sequences and shortcuts
 
     def setup_shortcuts(self):
@@ -77,7 +77,7 @@ class Extension:
         if shortcut is not None:
             shortcut.setEnabled(True)
     
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # misc
     
     def focus_field(self, N):
@@ -87,7 +87,7 @@ class Extension:
     def eval_js(self, js):
         self.web.eval(js)
         
-#════════════════════════════════════════
+# ════════════════════════════════════════
 # Editor
 
 # editor_commands is a dict which maps a method name to
@@ -109,14 +109,15 @@ class EditorExtension(Extension):
         self.bindings = copy.deepcopy(bindings)
         self.disable_keys()
         self.setup_shortcuts()
-        #════════════════════
+        # ════════════════════
         # setups
         self.setup_js()
         self.emacs_setup()
         self.code_highlight_setup()
         self.misc_setup()
+        self.identifiers_setup()
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # utils
     
     def install_event_filter(self, event_filter):
@@ -134,7 +135,7 @@ class EditorExtension(Extension):
         web_subwidget = self.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # disabling keys
     
     def disable_keys(self):
@@ -163,7 +164,7 @@ class EditorExtension(Extension):
                         return True
             return False
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # JavaScript setup
     def setup_js(self):
         dirname = os.path.dirname(__file__)
@@ -174,7 +175,7 @@ class EditorExtension(Extension):
             text = open(path).read()
             self.eval_js(text)
         
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # codify_selection
     
     @editor_command("Ctrl+X, C")
@@ -196,7 +197,7 @@ class EditorExtension(Extension):
         """
         web.eval(js)
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
 
@@ -204,7 +205,7 @@ class EditorExtension(Extension):
     def focus_first_field(self):
         self.focus_field(0)
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
     def emacs_setup(self):
@@ -294,7 +295,7 @@ class EditorExtension(Extension):
     def emacs_restore_point_cmd(self):
         self.emacs_restore_point()
         
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # emacs_search
     
     def emacs_search(self, substr, direction):
@@ -399,13 +400,13 @@ class EditorExtension(Extension):
             if text:
                 self.ext.emacs_search(text, direction)
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # misc commands
 
     def misc_setup(self):
         self.misc_python_history = []
         self.misc_js_history = []
-        #════════════════════
+        # ════════════════════
         # class EventFilter(QObject):
         #     def eventFilter(self, obj, event):
         #         if event.type() == QEvent.KeyPress:
@@ -456,12 +457,12 @@ class EditorExtension(Extension):
         regexes = {r"/(.+?)/": r"<i>\1</i>",
                    r"\*(.+?)\*": r"<b>\1</b>",
                    r"_(.+?)_": r"<u>\1</u>",
-                   r"~(.+?)~": r"<code>\1</code>&nbsp;",
-                   r"=(.+?)=": r"<code>\1</code>&nbsp;"}        
+                   r"~(.+?)~": r"<code>\1</code>",
+                   r"=(.+?)=": r"<code>\1</code>"}        
         text = mw.app.clipboard().text()
         for regex, sub in regexes.items():
             text = re.sub(regex, sub, text)
-        text = json.dumps(text)
+        text = json.dumps(text+" ")
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
 
@@ -581,7 +582,7 @@ class EditorExtension(Extension):
     def misc_bold_to_code(self):
         self.eval_js("misc_bold_to_code()")
     
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # code highlight addon extension
     
     CODE_HIGHLIGHT_MODULE_NAME = "1463041493"
@@ -618,7 +619,55 @@ class EditorExtension(Extension):
     def code_highlight_SQL(self):
         self.code_highlight_using("SQL")
 
-#════════════════════════════════════════
+    # ════════════════════════════════════════
+    # Identifiers insertion.
+    
+    IDENTIFIERS_PATH = os.path.realpath(
+        os.path.join(os.path.dirname(__file__),
+                     "user_data", "identifiers_list"))    
+    def identifiers_setup(self):
+        self.identifiers_list = []
+
+    def identifiers_read_list(self):
+        with open(self.IDENTIFIERS_PATH) as f:
+            self.identifiers_list = [line.strip() for line in f]
+    
+    @editor_command("Ctrl+X, Ctrl+I")
+    def identifiers_show_dialog(self):
+        self.identifiers_read_list()
+        choose_button = QPushButton("Choose")
+        qconnect(choose_button.clicked, self.identifiers_onChoose)
+        choose_button.setDefault(True)
+        save_button = QPushButton("Save")
+        qconnect(save_button.clicked, self.identifiers_onSave)
+        remove_button = QPushButton("Remove")
+        qconnect(remove_button.clicked, self.identifiers_onRemove)
+        # First create instance and then initialize so that buttons can access
+        # the instance
+        self.identifiers_study_deck = StudyDeck.__new__(StudyDeck)
+        StudyDeck.__init__(
+            self.identifiers_study_deck,
+            mw,
+            names=lambda:sorted(self.identifiers_list),
+            buttons=[choose_button, save_button, remove_button],
+            title="Choose state",
+            cancel=True,
+            parent=self.editor.parentWindow)
+
+    def identifiers_onChoose(self):
+        self.identifiers_study_deck.accept()
+        choice = self.identifiers_study_deck.name
+        text = f'"<b>{choice}</b>"'
+        js = f"""document.execCommand("insertHTML", false, {text});"""
+        self.eval_js(js)
+
+    def identifiers_onSave(self):
+        showInfo("onSave")
+
+    def identifiers_onRemove(self):
+        showInfo("onRemove")
+    
+# ════════════════════════════════════════
 # AddCards
 
 # addcards_commands is a dict which maps a method name to
@@ -642,7 +691,7 @@ class AddCardsExtension(Extension):
         self.typeauto_setup()
         self.prefix_setup()
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # prefix_first_field
 
     def prefix_setup(self):
@@ -673,7 +722,8 @@ class AddCardsExtension(Extension):
         prefix = self.prefix
         if prefix is not None:
             prefix = "<code>"+prefix+"</code>: "
-            old = "<code>"+old+"</code>: "
+            if old is not None:
+                old = "<code>"+old+"</code>: "
             note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):
@@ -697,7 +747,7 @@ class AddCardsExtension(Extension):
     def prefix_add_cards_did_add_note(self, note):
         self.prefix_load()
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # Notetype automation. Since I'm practically only using the Basic and Cloze
     # model, I want Basic to be default and Cloze to be switched to when
     # invoking the clozing key.
@@ -740,7 +790,7 @@ class AddCardsExtension(Extension):
         basic_id = mw.col.models.id_for_name("Basic")
         self.addcards.notetype_chooser.selected_notetype_id = basic_id
 
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # state management
 
     STATE_SAVED_STATES_PATH = os.path.realpath(
@@ -872,7 +922,7 @@ class AddCardsExtension(Extension):
         under the name "LAST"."""
         self.state_save_current("LAST")
         
-    #════════════════════════════════════════
+    # ════════════════════════════════════════
     # misc
     @addcards_command("Ctrl+Alt+N")
     def misc_change_notetype(self):
@@ -882,7 +932,7 @@ class AddCardsExtension(Extension):
     def misc_change_deck(self):
         self.addcards.deck_chooser.choose_deck()
         
-#════════════════════════════════════════
+# ════════════════════════════════════════
 # main hooks
 
 def editor_did_init(editor):
