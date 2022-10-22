@@ -5,6 +5,7 @@ import copy
 import os.path
 import sys
 import unicodedata
+from datetime import datetime
 from collections import namedtuple
 
 from aqt import gui_hooks, mw
@@ -14,11 +15,11 @@ from aqt.studydeck import StudyDeck
 from aqt.utils import showInfo, tooltip, KeyboardModifiersPressed
     
 
-# ════════════════════════════════════════
 # Extension base class
+# ════════════════════════════════════════
 class Extension:
-    # ════════════════════════════════════════
     # commands, key sequences and shortcuts
+    # ════════════════════════════════════════
 
     def setup_shortcuts(self):
         self.disable_used_keys()
@@ -77,8 +78,8 @@ class Extension:
         if shortcut is not None:
             shortcut.setEnabled(True)
     
-    # ════════════════════════════════════════
     # misc
+    # ════════════════════════════════════════
     
     def focus_field(self, N):
         self.web.setFocus()
@@ -87,8 +88,8 @@ class Extension:
     def eval_js(self, js):
         self.web.eval(js)
         
-# ════════════════════════════════════════
 # Editor
+# ════════════════════════════════════════
 
 # editor_commands is a dict which maps a method name to
 # a list pair [QKeySequence, QShortcut_or_None]
@@ -109,16 +110,16 @@ class EditorExtension(Extension):
         self.bindings = copy.deepcopy(bindings)
         self.disable_keys()
         self.setup_shortcuts()
-        # ════════════════════
         # setups
+        # ════════════════════
         self.setup_js()
         self.emacs_setup()
         self.code_highlight_setup()
         self.misc_setup()
         self.identifiers_setup()
 
-    # ════════════════════════════════════════
     # utils
+    # ════════════════════════════════════════
     
     def install_event_filter(self, event_filter):
         """The caller is responsible for attaching EVENT_FILTER as an attribute
@@ -135,8 +136,8 @@ class EditorExtension(Extension):
         web_subwidget = self.web.findChildren(QWidget)[0]
         web_subwidget.removeEventFilter(event_filter)
 
-    # ════════════════════════════════════════
     # disabling keys
+    # ════════════════════════════════════════
     
     def disable_keys(self):
         # Attach as an attribute to prevent garbage collection.
@@ -164,8 +165,8 @@ class EditorExtension(Extension):
                         return True
             return False
 
-    # ════════════════════════════════════════
     # JavaScript setup
+    # ════════════════════════════════════════
     def setup_js(self):
         dirname = os.path.dirname(__file__)
         sources = (source for source in os.listdir(dirname)
@@ -175,8 +176,8 @@ class EditorExtension(Extension):
             text = open(path).read()
             self.eval_js(text)
         
-    # ════════════════════════════════════════
     # codify_selection
+    # ════════════════════════════════════════
     
     @editor_command("Ctrl+X, C")
     def codify_selection(self):
@@ -197,17 +198,18 @@ class EditorExtension(Extension):
         """
         web.eval(js)
 
-    # ════════════════════════════════════════
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
+    # ════════════════════════════════════════
 
     @editor_command("Ctrl+Alt+1")
     def focus_first_field(self):
         self.focus_field(0)
 
-    # ════════════════════════════════════════
     # A bit of Emacs-like key-bindings, as many as possible without introducing
     # too many conflicts.
+    # ════════════════════════════════════════
+    
     def emacs_setup(self):
         self.emacs_extend_selection_next_time = False
 
@@ -633,6 +635,22 @@ class EditorExtension(Extension):
             self.identifiers_list = [line.strip() for line in f]
     
     @editor_command("Ctrl+X, Ctrl+I")
+    def identifiers_insert_direct(self):
+        self.identifiers_pre = self.identifiers_post = ""
+        self.identifiers_show_dialog()
+
+    @editor_command("Ctrl+X, (")
+    def identifiers_insert_paren(self):
+        self.identifiers_pre = "("
+        self.identifiers_post = ")"
+        self.identifiers_show_dialog()
+
+    @editor_command("Ctrl+X, [")
+    def identifiers_insert_bracket(self):
+        self.identifiers_pre = "["
+        self.identifiers_post = "]"
+        self.identifiers_show_dialog()
+
     def identifiers_show_dialog(self):
         self.identifiers_read_list()
         choose_button = QPushButton("Choose")
@@ -648,7 +666,7 @@ class EditorExtension(Extension):
         StudyDeck.__init__(
             self.identifiers_study_deck,
             mw,
-            names=lambda:sorted(self.identifiers_list),
+            names=lambda:self.identifiers_list,
             buttons=[choose_button, save_button, remove_button],
             title="Choose state",
             cancel=True,
@@ -657,7 +675,7 @@ class EditorExtension(Extension):
     def identifiers_onChoose(self):
         self.identifiers_study_deck.accept()
         choice = self.identifiers_study_deck.name
-        text = f'"<b>{choice}</b>"'
+        text = f'"<b>{self.identifiers_pre}{choice}{self.identifiers_post}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
 
@@ -666,7 +684,18 @@ class EditorExtension(Extension):
 
     def identifiers_onRemove(self):
         showInfo("onRemove")
-    
+
+    # insert date
+    # ════════════════════════════════════════
+
+    @editor_command("Ctrl+X, D")
+    def insert_date(self):
+        now = datetime.now()
+        timestamp = now.strftime("[%d-%b-%Y]")
+        bold = f'"<b>{timestamp}</b>"'
+        js = f"""document.execCommand("insertHTML", false, {bold});"""
+        self.eval_js(js)
+        
 # ════════════════════════════════════════
 # AddCards
 
