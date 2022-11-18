@@ -623,16 +623,55 @@ class EditorExtension(Extension):
 
     # ════════════════════════════════════════
     # Identifiers insertion.
-    
+
+    class identifiers_StudyDeck(StudyDeck):
+        def _matches(self, name, filt):
+            name = name.lower()
+            filt = filt.lower()
+            if not filt:
+                return True
+            filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
+            name_parts = name.split("-")
+            for fp in filt_parts:
+                while name_parts:
+                    first, name_parts = name_parts[0], name_parts[1:]
+                    if first.startswith(fp):
+                        break
+                else:
+                    return False
+            return True
+
+        def eventFilter(self, obj, evt):
+            if evt.type() == QEvent.KeyPress:
+                if evt.key() == Qt.Key_Up or (evt.key() == Qt.Key_P and
+                                              evt.modifiers() == Qt.ControlModifier):
+                    c = self.form.list.count()
+                    row = self.form.list.currentRow() - 1
+                    if row < 0:
+                        row = c - 1
+                    self.form.list.setCurrentRow(row)
+                    return True
+                elif evt.key() == Qt.Key_Down or (evt.key() == Qt.Key_N and
+                                                  evt.modifiers() == Qt.ControlModifier):
+                    c = self.form.list.count()
+                    row = self.form.list.currentRow() + 1
+                    if row == c:
+                        row = 0
+                    self.form.list.setCurrentRow(row)
+                    return True
+            return False
+
+        
     IDENTIFIERS_PATH = os.path.realpath(
         os.path.join(os.path.dirname(__file__),
-                     "user_data", "identifiers_list"))    
+                     "user_data", "identifiers_list"))
     def identifiers_setup(self):
         self.identifiers_list = []
 
     def identifiers_read_list(self):
         with open(self.IDENTIFIERS_PATH) as f:
-            self.identifiers_list = [line.strip() for line in f]
+            self.identifiers_list = [line[2:].strip() for line in f
+                                     if line.startswith("- ")]
     
     @editor_command("Ctrl+X, Ctrl+I")
     def identifiers_insert_direct(self):
@@ -660,10 +699,9 @@ class EditorExtension(Extension):
         qconnect(save_button.clicked, self.identifiers_onSave)
         remove_button = QPushButton("Remove")
         qconnect(remove_button.clicked, self.identifiers_onRemove)
-        # First create instance and then initialize so that buttons can access
-        # the instance
-        self.identifiers_study_deck = StudyDeck.__new__(StudyDeck)
-        StudyDeck.__init__(
+        # First create instance and then initialize so that buttons can access the instance.
+        self.identifiers_study_deck = self.identifiers_StudyDeck.__new__(self.identifiers_StudyDeck)
+        self.identifiers_StudyDeck.__init__(
             self.identifiers_study_deck,
             mw,
             names=lambda:self.identifiers_list,
