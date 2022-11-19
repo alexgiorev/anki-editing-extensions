@@ -843,6 +843,22 @@ class AddCardsExtension(Extension):
         js = "wrap('{{c%d::', '}}');" % highest 
         self.web.evalWithCallback(js, self.typeauto_onCloze_callback)
 
+    @addcards_command("Ctrl+Shift+P")
+    def typeauto_onCloze_optional(self):
+        # find the highest existing cloze
+        highest = 0
+        for name, val in list(self.editor.note.items()):
+            m = re.findall(r"\{\{c(\d+)::", val)
+            if m:
+                highest = max(highest, sorted([int(x) for x in m])[-1])
+        # reuse last?
+        if not KeyboardModifiersPressed().alt:
+            highest += 1
+        # must start at 1
+        highest = max(1, highest)
+        js = "wrap('{{c%d::', '::[optional]}}');" % highest 
+        self.web.evalWithCallback(js, self.typeauto_onCloze_callback)
+
     def typeauto_onCloze_callback(self, *args):
         # change the model
         cloze_id = mw.col.models.id_for_name("Cloze")
