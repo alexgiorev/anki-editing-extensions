@@ -716,6 +716,7 @@ class EditorExtension(Extension):
         text = f'"<b>{self.identifiers_pre}{choice}{self.identifiers_post}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
+        self.misc_toggle_bold()
 
     def identifiers_onSave(self):
         showInfo("onSave")
