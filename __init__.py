@@ -702,7 +702,7 @@ class EditorExtension(Extension):
         self.identifiers_show_dialog()
         identifier = self.identifiers_identifier
         if identifier:
-            text = f'"<b>[{self.identifier}]</b>"'
+            text = f'"<b>[{identifier}]</b>"'
             js = f"""document.execCommand("insertHTML", false, {text});"""
             self.eval_js(js)
             self.misc_toggle_bold()
@@ -712,10 +712,6 @@ class EditorExtension(Extension):
         choose_button = QPushButton("Choose")
         qconnect(choose_button.clicked, self.identifiers_onChoose)
         choose_button.setDefault(True)
-        save_button = QPushButton("Save")
-        qconnect(save_button.clicked, self.identifiers_onSave)
-        remove_button = QPushButton("Remove")
-        qconnect(remove_button.clicked, self.identifiers_onRemove)
         # First create instance and then initialize so that buttons can access the instance.
         self.identifiers_study_deck = self.identifiers_StudyDeck.__new__(self.identifiers_StudyDeck)
         self.identifiers_rejected = True
@@ -723,7 +719,7 @@ class EditorExtension(Extension):
             self.identifiers_study_deck,
             mw,
             names=lambda:self.identifiers_list,
-            buttons=[choose_button, save_button, remove_button],
+            buttons=[choose_button],
             title="Choose state",
             cancel=True,
             parent=self.editor.parentWindow)
