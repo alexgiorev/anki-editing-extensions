@@ -630,7 +630,7 @@ class EditorExtension(Extension):
             filt = filt.lower()
             if not filt:
                 return True
-            filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
+            filt_parts = list(astr for astr in re.split("[ ⟶-]", filt) if astr)
             name_parts = name.split("-")
             for fp in filt_parts:
                 while name_parts:
@@ -677,18 +677,35 @@ class EditorExtension(Extension):
     def identifiers_insert_direct(self):
         self.identifiers_pre = self.identifiers_post = ""
         self.identifiers_show_dialog()
-
+        identifier = self.identifiers_identifier
+        if self.web.hasSelection():
+            stext = self.web.selectedText()
+            text = f'"<b title=[{identifier}]>{stext}</b>"'
+        else:
+            text = f'"<b>{self.identifiers_pre}{identifier}{self.identifiers_post}</b>"'
+        js = f"""document.execCommand("insertHTML", false, {text});"""
+        self.eval_js(js)
+        self.misc_toggle_bold()
+        
     @editor_command("Ctrl+X, (")
     def identifiers_insert_paren(self):
-        self.identifiers_pre = "("
-        self.identifiers_post = ")"
         self.identifiers_show_dialog()
+        identifier = self.identifiers_identifier
+        if identifier:
+            text = f'"<b>({identifier})</b>"'
+            js = f"""document.execCommand("insertHTML", false, {text});"""
+            self.eval_js(js)
+            self.misc_toggle_bold()
 
     @editor_command("Ctrl+X, [")
     def identifiers_insert_bracket(self):
-        self.identifiers_pre = "["
-        self.identifiers_post = "]"
         self.identifiers_show_dialog()
+        identifier = self.identifiers_identifier
+        if identifier:
+            text = f'"<b>[{self.identifier}]</b>"'
+            js = f"""document.execCommand("insertHTML", false, {text});"""
+            self.eval_js(js)
+            self.misc_toggle_bold()
 
     def identifiers_show_dialog(self):
         self.identifiers_read_list()
@@ -701,6 +718,7 @@ class EditorExtension(Extension):
         qconnect(remove_button.clicked, self.identifiers_onRemove)
         # First create instance and then initialize so that buttons can access the instance.
         self.identifiers_study_deck = self.identifiers_StudyDeck.__new__(self.identifiers_StudyDeck)
+        self.identifiers_rejected = True
         self.identifiers_StudyDeck.__init__(
             self.identifiers_study_deck,
             mw,
@@ -709,20 +727,13 @@ class EditorExtension(Extension):
             title="Choose state",
             cancel=True,
             parent=self.editor.parentWindow)
+        if self.identifiers_rejected:
+            self.identifiers_identifier = None
 
     def identifiers_onChoose(self):
         self.identifiers_study_deck.accept()
-        choice = self.identifiers_study_deck.name
-        text = f'"<b>{self.identifiers_pre}{choice}{self.identifiers_post}</b>"'
-        js = f"""document.execCommand("insertHTML", false, {text});"""
-        self.eval_js(js)
-        self.misc_toggle_bold()
-
-    def identifiers_onSave(self):
-        showInfo("onSave")
-
-    def identifiers_onRemove(self):
-        showInfo("onRemove")
+        self.identifiers_identifier = self.identifiers_study_deck.name
+        self.identifiers_rejected = False
 
     # insert date
     # ════════════════════════════════════════
@@ -734,6 +745,7 @@ class EditorExtension(Extension):
         bold = f'"<b>{timestamp}</b>"'
         js = f"""document.execCommand("insertHTML", false, {bold});"""
         self.eval_js(js)
+        self.misc_toggle_bold()
         
 # ════════════════════════════════════════
 # AddCards
