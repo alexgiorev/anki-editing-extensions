@@ -6,7 +6,7 @@ import os.path
 import sys
 import unicodedata
 from datetime import datetime
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 from aqt import gui_hooks, mw
 from aqt.qt import *
@@ -630,8 +630,8 @@ class EditorExtension(Extension):
             filt = filt.lower()
             if not filt:
                 return True
-            filt_parts = list(astr for astr in re.split("[ ⟶-]", filt) if astr)
-            name_parts = name.split("-")
+            filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
+            name_parts = re.split("[ ⟶-]", name)
             for fp in filt_parts:
                 while name_parts:
                     first, name_parts = name_parts[0], name_parts[1:]
@@ -666,23 +666,36 @@ class EditorExtension(Extension):
         os.path.join(os.path.dirname(__file__),
                      "user_data", "identifiers_list"))
     def identifiers_setup(self):
-        self.identifiers_list = []
+        self.identifiers_struct = None
 
-    def identifiers_read_list(self):
+    def identifiers_read(self):
         with open(self.IDENTIFIERS_PATH) as f:
-            self.identifiers_list = [line[2:].strip() for line in f
-                                     if line.startswith("- ")]
+            struct = OrderedDict()
+            for line in (line[2:].strip() for line in f if line.startswith("- ")):
+                if "::" in line:
+                    identifier, synonyms = map(str.strip, line.split("::"))
+                    synonyms = synonyms.split()
+                    for synonym in synonyms:
+                        struct[synonym] = identifier
+                else:
+                    struct[line] = line
+            self.identifiers_struct = struct
     
     @editor_command("Ctrl+X, Ctrl+I")
     def identifiers_insert_direct(self):
-        self.identifiers_pre = self.identifiers_post = ""
         self.identifiers_show_dialog()
-        identifier = self.identifiers_identifier
-        if self.web.hasSelection():
+        choice = self.identifiers_choice
+        identifier = self.identifiers_struct[choice]
+        if choice is None:
+            return
+        elif self.web.hasSelection():
             stext = self.web.selectedText()
             text = f'"<b title=[{identifier}]>{stext}</b>"'
         else:
-            text = f'"<b>{self.identifiers_pre}{identifier}{self.identifiers_post}</b>"'
+            if identifier == choice and "-" in choice:
+                text = f'"<b>{choice}</b>"'
+            else:
+                text = f'"<b title=[{identifier}]>{choice}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
         self.misc_toggle_bold()
@@ -690,7 +703,7 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, (")
     def identifiers_insert_paren(self):
         self.identifiers_show_dialog()
-        identifier = self.identifiers_identifier
+        identifier = self.identifiers_struct[self.identifiers_choice]
         if identifier:
             text = f'"<b>({identifier})</b>"'
             js = f"""document.execCommand("insertHTML", false, {text});"""
@@ -700,7 +713,7 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, [")
     def identifiers_insert_bracket(self):
         self.identifiers_show_dialog()
-        identifier = self.identifiers_identifier
+        identifier = self.identifiers_struct[self.identifiers_choice]
         if identifier:
             text = f'"<b>[{identifier}]</b>"'
             js = f"""document.execCommand("insertHTML", false, {text});"""
@@ -708,7 +721,7 @@ class EditorExtension(Extension):
             self.misc_toggle_bold()
 
     def identifiers_show_dialog(self):
-        self.identifiers_read_list()
+        self.identifiers_read()
         choose_button = QPushButton("Choose")
         qconnect(choose_button.clicked, self.identifiers_onChoose)
         choose_button.setDefault(True)
@@ -718,17 +731,17 @@ class EditorExtension(Extension):
         self.identifiers_StudyDeck.__init__(
             self.identifiers_study_deck,
             mw,
-            names=lambda:self.identifiers_list,
+            names=lambda:list(self.identifiers_struct.keys()),
             buttons=[choose_button],
             title="Choose state",
             cancel=True,
             parent=self.editor.parentWindow)
         if self.identifiers_rejected:
-            self.identifiers_identifier = None
+            self.identifiers_choice = None
 
     def identifiers_onChoose(self):
         self.identifiers_study_deck.accept()
-        self.identifiers_identifier = self.identifiers_study_deck.name
+        self.identifiers_choice = self.identifiers_study_deck.name
         self.identifiers_rejected = False
 
     # insert date
