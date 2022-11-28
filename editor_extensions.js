@@ -206,3 +206,52 @@ function emacs_search_get_current(direction){
         return null;
     }
 }
+function uncodify_selection(){
+    let S = emacs_selection();
+    let focusNode = S.focusNode, anchorNode = S.anchorNode;
+    code_node = focusNode.parentNode;
+    if (focusNode !== anchorNode || code_node.nodeName != "CODE")
+        return;
+    let low = Math.min(S.focusOffset, S.anchorOffset);
+    let high = Math.max(S.focusOffset, S.anchorOffset);
+    let text = code_node.textContent;
+    let left_code = create_code(text.substring(0, low));
+    let middle_text;
+    if (low == high)
+        middle_text = " ";
+    else
+        middle_text = text.substring(low, high);
+    let right_code = create_code(text.substring(high));
+    code_node.before(left_code);
+    code_node.after(middle_text, right_code);
+    code_node.remove();
+    emacs_goto([left_code.nextSibling, middle_text.length]);
+}
+function create_code(text){
+    let result = document.createElement("CODE");
+    let text_node = document.createTextNode(text);
+    result.appendChild(text_node);
+    return result;
+}
+function split_text(text_node, offset){
+    if (text_node.nodeType !== Node.TEXT_NODE)
+        return;
+    let text = text_node.textContent;
+    if (!(0 <= offset <= text.length)){
+        console.log("[split_text][Offset outside of range.]")
+        return;}
+    left = document.createTextNode(text.substring(0, offset));
+    right = document.createTextNode(text.substring(offset));
+    text_node.before(left);
+    text_node.after(right);
+    text_node.remove();
+    return [left, right];
+}
+function codify(){
+    let S = emacs_selection();
+    let node = S.focusNode, offset = S.focusOffset;
+    let code = create_code("[TEST]");
+    let [left,right] = split_text(node,offset);
+    left.after(code);
+    emacs_goto([code.firstChild,6]);
+}
