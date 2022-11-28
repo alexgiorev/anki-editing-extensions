@@ -99,7 +99,11 @@ def editor_command(key_seq_str):
         # Bind to the function name instead of the function so that
         # different methods are created for different instances
         editor_commands[func.__name__] = [QKeySequence(key_seq_str), None]
-        return func
+        def new_func(self):
+            func(self)
+            if func.__name__ != "set_prefix_arg":
+                self.clear_prefix_arg()
+        return new_func
     return decorator
 
 class EditorExtension(Extension):
@@ -108,6 +112,7 @@ class EditorExtension(Extension):
         self.web = editor.web
         self.widget = editor.widget
         self.bindings = copy.deepcopy(bindings)
+        self.prefix_arg = False
         self.disable_keys()
         self.setup_shortcuts()
         # setups
@@ -175,28 +180,41 @@ class EditorExtension(Extension):
             path = os.path.join(os.path.dirname(__file__), source)
             text = open(path).read()
             self.eval_js(text)
+
+    # Prefix arguments.
+    # ════════════════════════════════════════
+    
+    def clear_prefix_arg(self):
+        self.prefix_arg = False
         
+    @editor_command("Ctrl+U")
+    def set_prefix_arg(self):
+        self.prefix_arg = True
+    
     # codify_selection
     # ════════════════════════════════════════
     
     @editor_command("Ctrl+X, C")
     def codify_selection(self):
-        web = self.web
-        selected_text = web.selectedText()
-        # after this IF statement, CODIFIED will store the text to insert
-        if selected_text:
-            selected_text = html.escape(selected_text)
-            codified = json.dumps(f"<code>{selected_text}</code>")
+        if self.prefix_arg:
+            self.eval_js("uncodify_selection()")
         else:
-            input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
-            if not accepted:
-                return
-            escaped = html.escape(input_text)
-            codified = json.dumps(f"<code>{escaped}</code>&nbsp;")
-        js = f"""
-        document.execCommand("insertHTML", false, {codified});
-        """
-        web.eval(js)
+            web = self.web
+            selected_text = web.selectedText()
+            # after this IF statement, CODIFIED will store the text to insert
+            if selected_text:
+                selected_text = html.escape(selected_text)
+                codified = json.dumps(f"<code>{selected_text}</code>")
+            else:
+                input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
+                if not accepted:
+                    return
+                escaped = html.escape(input_text)
+                codified = json.dumps(f"<code>{escaped}</code>&nbsp;")
+            js = f"""
+            document.execCommand("insertHTML", false, {codified});
+            """
+            web.eval(js)
 
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
@@ -675,6 +693,7 @@ class EditorExtension(Extension):
                 if "::" in line:
                     identifier, synonyms = map(str.strip, line.split("::"))
                     synonyms = synonyms.split()
+                    struct[identifier] = identifier
                     for synonym in synonyms:
                         struct[synonym] = identifier
                 else:
@@ -685,40 +704,41 @@ class EditorExtension(Extension):
     def identifiers_insert_direct(self):
         self.identifiers_show_dialog()
         choice = self.identifiers_choice
-        identifier = self.identifiers_struct[choice]
         if choice is None:
-            return
-        elif self.web.hasSelection():
+            return        
+        identifier = self.identifiers_struct[choice]
+        if self.web.hasSelection():
             stext = self.web.selectedText()
-            text = f'"<b title=[{identifier}]>{stext}</b>"'
+            text = f'"<b title=[{identifier}]>{stext}</b>&nbsp;"'
         else:
             if identifier == choice and "-" in choice:
-                text = f'"<b>{choice}</b>"'
+                text = f'"<b>{choice}</b>&nbsp;"'
             else:
-                text = f'"<b title=[{identifier}]>{choice}</b>"'
+                text = f'"<b title=[{identifier}]>{choice}</b>&nbsp;"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
-        self.misc_toggle_bold()
         
     @editor_command("Ctrl+X, (")
     def identifiers_insert_paren(self):
         self.identifiers_show_dialog()
-        identifier = self.identifiers_struct[self.identifiers_choice]
-        if identifier:
-            text = f'"<b>({identifier})</b>"'
-            js = f"""document.execCommand("insertHTML", false, {text});"""
-            self.eval_js(js)
-            self.misc_toggle_bold()
+        if self.identifiers_choice is not None:
+            identifier = self.identifiers_struct[self.identifiers_choice]
+            if identifier:
+                text = f'"<b>({identifier})</b>"'
+                js = f"""document.execCommand("insertHTML", false, {text});"""
+                self.eval_js(js)
+                self.misc_toggle_bold()
 
     @editor_command("Ctrl+X, [")
     def identifiers_insert_bracket(self):
         self.identifiers_show_dialog()
-        identifier = self.identifiers_struct[self.identifiers_choice]
-        if identifier:
-            text = f'"<b>[{identifier}]</b>"'
-            js = f"""document.execCommand("insertHTML", false, {text});"""
-            self.eval_js(js)
-            self.misc_toggle_bold()
+        if self.identifiers_choice is not None:
+            identifier = self.identifiers_struct[self.identifiers_choice]
+            if identifier:
+                text = f'"<b>[{identifier}]</b>"'
+                js = f"""document.execCommand("insertHTML", false, {text});"""
+                self.eval_js(js)
+                self.misc_toggle_bold()
 
     def identifiers_show_dialog(self):
         self.identifiers_read()
