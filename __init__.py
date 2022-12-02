@@ -601,6 +601,10 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, B")
     def misc_bold_to_code(self):
         self.eval_js("misc_bold_to_code()")
+
+    @editor_command("Ctrl+X, -")
+    def misc_insert_horizontal_ruler(self):
+        self.eval_js('document.execCommand("insertHTML", false, "<hr>");')
     
     # ════════════════════════════════════════
     # code highlight addon extension
@@ -658,7 +662,7 @@ class EditorExtension(Extension):
                 else:
                     return False
             return True
-
+        
         def eventFilter(self, obj, evt):
             if evt.type() == QEvent.KeyPress:
                 if evt.key() == Qt.Key_Up or (evt.key() == Qt.Key_P and
@@ -677,8 +681,12 @@ class EditorExtension(Extension):
                         row = 0
                     self.form.list.setCurrentRow(row)
                     return True
+                if evt.key() == Qt.Key_Return and evt.modifiers() == Qt.ControlModifier:
+                    self.filt_over_name = True
+                    new_event = QKeyEvent(QEvent.KeyPress, Qt.Key_Enter, Qt.NoModifier)
+                    mw.app.notify(obj, new_event)
+                    return False
             return False
-
         
     IDENTIFIERS_PATH = os.path.realpath(
         os.path.join(os.path.dirname(__file__),
@@ -705,18 +713,21 @@ class EditorExtension(Extension):
         self.identifiers_show_dialog()
         choice = self.identifiers_choice
         if choice is None:
-            return        
+            return
         identifier = self.identifiers_struct[choice]
+        capitalize = self.identifiers_study_deck.filt[0].isupper()
         if self.web.hasSelection():
             stext = self.web.selectedText()
-            text = f'"<b title=[{identifier}]>{stext}</b>&nbsp;"'
+            first, middle, last = stext[0], stext[1:-1], stext[-1]
+            if capitalize: first = first.upper()
+            text = f'"<b>{first}<span concept=[{identifier}]>{middle}</span>{last}</b>"'
         else:
-            if identifier == choice and "-" in choice:
-                text = f'"<b>{choice}</b>&nbsp;"'
-            else:
-                text = f'"<b title=[{identifier}]>{choice}</b>&nbsp;"'
+            first, middle, last = choice[0], choice[1:-1], choice[-1]
+            if capitalize: first = first.upper()
+            text = f'"<b>{first}<span concept=[{identifier}]>{middle}</span>{last}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
+        self.misc_toggle_bold()
         
     @editor_command("Ctrl+X, (")
     def identifiers_insert_paren(self):
@@ -761,7 +772,10 @@ class EditorExtension(Extension):
 
     def identifiers_onChoose(self):
         self.identifiers_study_deck.accept()
-        self.identifiers_choice = self.identifiers_study_deck.name
+        if self.identifiers_study_deck.filt_over_name:
+            self.identifiers_choice = self.identifiers_study_deck.filt
+        else:
+            self.identifiers_choice = self.identifiers_study_deck.name
         self.identifiers_rejected = False
 
     # insert date
@@ -1070,4 +1084,3 @@ def add_cards_did_init(addcards):
 
 gui_hooks.editor_did_init.append(editor_did_init)
 gui_hooks.add_cards_did_init.append(add_cards_did_init)
-
