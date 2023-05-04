@@ -191,30 +191,34 @@ class EditorExtension(Extension):
     def set_prefix_arg(self):
         self.prefix_arg = True
     
-    # codify_selection
+    # codify
     # ════════════════════════════════════════
-    
+
+    @editor_command("Ctrl+C")
+    def codify_preceding_bold(self):
+        if self.prefix_arg:
+            self.eval_js('swap_preceding_type("CODE", "B");')
+        else:
+            self.eval_js('swap_preceding_type("B", "CODE");')
+            
     @editor_command("Ctrl+X, C")
     def codify_selection(self):
-        if self.prefix_arg:
-            self.eval_js("uncodify_selection()")
+        web = self.web
+        selected_text = web.selectedText()
+        # after this IF statement, CODIFIED will store the text to insert
+        if selected_text:
+            selected_text = html.escape(selected_text)
+            codified = json.dumps(f"<code style='white-space:nowrap;'>{selected_text}</code>")
         else:
-            web = self.web
-            selected_text = web.selectedText()
-            # after this IF statement, CODIFIED will store the text to insert
-            if selected_text:
-                selected_text = html.escape(selected_text)
-                codified = json.dumps(f"<code>{selected_text}</code>")
-            else:
-                input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
-                if not accepted:
-                    return
-                escaped = html.escape(input_text)
-                codified = json.dumps(f"<code>{escaped}</code>&nbsp;")
-            js = f"""
-            document.execCommand("insertHTML", false, {codified});
-            """
-            web.eval(js)
+            input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
+            if not accepted:
+                return
+            escaped = html.escape(input_text)
+            codified = json.dumps(f"<code style='white-space:nowrap;'>{escaped}</code>&nbsp;")
+        js = f"""
+        document.execCommand("insertHTML", false, {codified});
+        """
+        self.eval_js(js)
 
     # Focus on the first field. I don't yet feel a need for commands which
     # focus on other fields.
@@ -292,7 +296,15 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+P")
     def emacs_previous_line(self):
         self.emacs_move("backward", "line")
-        
+
+    @editor_command("Alt+<")
+    def emacs_goto_beginning(self):
+        self.emacs_move("backward", "documentboundary")
+
+    @editor_command("Alt+>")
+    def emacs_goto_end(self):
+        self.emacs_move("forward", "documentboundary")
+
     @editor_command("Ctrl+G")
     def emacs_quit(self):
         self.emacs_unset_mark()
@@ -435,20 +447,25 @@ class EditorExtension(Extension):
         # ef = self.misc_event_filter = EventFilter()
         # self.editor.parentWindow.installEventFilter(ef)
 
-    @editor_command("Ctrl+Alt+B")
+    @editor_command("Ctrl+1")
     def misc_toggle_bold(self):
         # Since now I'm using Ctrl+B for something different, I want to change the
         # bold key. But for symmetry I also want to change the italic and underline
         # keys.        
         self.web.triggerPageAction(QWebEnginePage.ToggleBold)
 
-    @editor_command("Ctrl+Alt+I")
+    @editor_command("Ctrl+2")
     def misc_toggle_italic(self):
         self.web.triggerPageAction(QWebEnginePage.ToggleItalic)
 
-    @editor_command("Ctrl+Alt+U")
+    @editor_command("Ctrl+3")
     def misc_toggle_underline(self):
         self.web.triggerPageAction(QWebEnginePage.ToggleUnderline)
+
+    @editor_command("Ctrl+4")
+    def misc_toggle_bold_italic(self):
+        self.misc_toggle_bold()
+        self.misc_toggle_italic()
 
     @editor_command("Ctrl+X, O")
     def misc_copy_for_org_mode(self):
@@ -477,8 +494,9 @@ class EditorExtension(Extension):
         regexes = {r"/(.+?)/": r"<i>\1</i>",
                    r"\*(.+?)\*": r"<b>\1</b>",
                    r"_(.+?)_": r"<u>\1</u>",
-                   r"~(.+?)~": r"<code>\1</code>",
-                   r"=(.+?)=": r"<code>\1</code>"}        
+                   r"~(.+?)~": r"<code style='white-space:nowrap;'>\1</code>",
+                   r"=(.+?)=": r"<code style='white-space:nowrap;'>\1</code>",
+                   r"\[\[(.+?)\]\[(.+?)\]\]": r'<b><span concept="[\1]">#</span>\2</b>'}
         text = mw.app.clipboard().text()
         for regex, sub in regexes.items():
             text = re.sub(regex, sub, text)
@@ -591,12 +609,27 @@ class EditorExtension(Extension):
         dialog.run()
         dialog.setParent(None)
 
-    @editor_command("Ctrl+X, T, 1")
+    @editor_command("Ctrl+M")
     def misc_command1(self):
-        pass
+        note = self.editor.note
+        for i, field in enumerate(note.fields):
+            m = re.match("-([ ]|&nbsp;)",field)
+            if m:
+                field = field[m.end():]
+            pattern = re.compile(r"(\n|<br>)-(?:[ ]|&nbsp;)")
+            note.fields[i] = pattern.sub("<br><hr>", field)
+        self.editor.set_note(note)
+
     @editor_command("Ctrl+X, T, 2")
     def misc_command2(self):
-        pass
+        note = self.editor.note
+        for i, field in enumerate(note.fields):
+            m = re.match("-([ ]|&nbsp;)",field)
+            if m:
+                field = field[m.end():]
+            pattern = re.compile(r"(\n|<br>)-(?:[ ]|&nbsp;)<b>[UPDATE]</b>")
+            note.fields[i] = pattern.sub("<br><hr><b>[UPDATE]</b>", field)
+        self.editor.set_note(note)
 
     @editor_command("Ctrl+X, B")
     def misc_bold_to_code(self):
@@ -605,7 +638,11 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, -")
     def misc_insert_horizontal_ruler(self):
         self.eval_js('document.execCommand("insertHTML", false, "<hr>");')
-    
+
+    @editor_command("Ctrl+Alt+R")
+    def misc_remove_formatting(self):
+        self.editor.removeFormat()
+
     # ════════════════════════════════════════
     # code highlight addon extension
     
@@ -653,7 +690,7 @@ class EditorExtension(Extension):
             if not filt:
                 return True
             filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
-            name_parts = re.split("[ ⟶-]", name)
+            name_parts = re.split("[ ⟶⟷/-]", name)
             for fp in filt_parts:
                 while name_parts:
                     first, name_parts = name_parts[0], name_parts[1:]
@@ -718,13 +755,11 @@ class EditorExtension(Extension):
         capitalize = self.identifiers_study_deck.filt[0].isupper()
         if self.web.hasSelection():
             stext = self.web.selectedText()
-            first, middle, last = stext[0], stext[1:-1], stext[-1]
-            if capitalize: first = first.upper()
-            text = f'"<b>{first}<span concept=[{identifier}]>{middle}</span>{last}</b>"'
+            text = f'"<b><span concept=[{identifier}]>#</span>{stext}</b>"'
         else:
-            first, middle, last = choice[0], choice[1:-1], choice[-1]
-            if capitalize: first = first.upper()
-            text = f'"<b>{first}<span concept=[{identifier}]>{middle}</span>{last}</b>"'
+            if capitalize and len(choice) > 0: choice = choice[0].upper() + choice[1:]
+            insert_text = QInputDialog.getText(None, "", "Text: ", text=choice)[0]
+            text = f'"<b><span concept=[{identifier}]>#</span>{insert_text}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
         self.misc_toggle_bold()
@@ -758,6 +793,7 @@ class EditorExtension(Extension):
         choose_button.setDefault(True)
         # First create instance and then initialize so that buttons can access the instance.
         self.identifiers_study_deck = self.identifiers_StudyDeck.__new__(self.identifiers_StudyDeck)
+        self.identifiers_study_deck.filt_over_name = False
         self.identifiers_rejected = True
         self.identifiers_StudyDeck.__init__(
             self.identifiers_study_deck,
@@ -844,9 +880,9 @@ class AddCardsExtension(Extension):
         """Inserts the prefix into the note being edited"""
         prefix = self.prefix
         if prefix is not None:
-            prefix = "<code>"+prefix+"</code>: "
+            prefix = "<b>["+prefix+"]</b> "
             if old is not None:
-                old = "<code>"+old+"</code>: "
+                old = "<b>["+old+"]</b> "
             note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):

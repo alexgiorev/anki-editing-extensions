@@ -208,24 +208,50 @@ function emacs_search_get_current(direction){
 }
 function uncodify_selection(){
     let S = emacs_selection();
-    let focusNode = S.focusNode, anchorNode = S.anchorNode;
-    code_node = focusNode.parentNode;
-    if (focusNode !== anchorNode || code_node.nodeName != "CODE")
-        return;
-    let low = Math.min(S.focusOffset, S.anchorOffset);
-    let high = Math.max(S.focusOffset, S.anchorOffset);
+    if (S.isCollapsed) {
+        next_char_not_code();
+    } else {
+        let focusNode = S.focusNode, anchorNode = S.anchorNode;
+        code_node = focusNode.parentNode;
+        if (focusNode !== anchorNode || code_node.nodeName != "CODE")
+            return;
+        let low = Math.min(S.focusOffset, S.anchorOffset);
+        let high = Math.max(S.focusOffset, S.anchorOffset);
+        let text = code_node.textContent;
+        let left_code = create_code(text.substring(0, low));
+        let middle_text;
+        if (low == high)
+            middle_text = " ";
+        else
+            middle_text = text.substring(low, high);
+        let right_code = create_code(text.substring(high));
+        code_node.before(left_code);
+        code_node.after(middle_text, right_code);
+        code_node.remove();
+        emacs_goto([left_code.nextSibling, middle_text.length]);
+    }
+}
+function next_char_not_code(){
+    function handler(event){
+        let S = emacs_selection();
+        let node = S.focusNode.parentNode, offset = S.focusOffset;        
+        if (node.nodeName != "CODE") return;
+        let left_code = split_code(node, offset);
+        left_code.after(event.key);
+        emacs_goto([left_code.nextSibling,1])
+        event.stopPropagation(); event.preventDefault();
+    }
+    document.addEventListener("keypress", handler, {"once":true, "capture":true});
+}
+function split_code(code_node, offset){
     let text = code_node.textContent;
-    let left_code = create_code(text.substring(0, low));
-    let middle_text;
-    if (low == high)
-        middle_text = " ";
-    else
-        middle_text = text.substring(low, high);
-    let right_code = create_code(text.substring(high));
+    if (offset == text.length) return code_node;
+    let left_code = create_code(text.substring(0, offset));
+    let right_code = create_code(text.substring(offset));
     code_node.before(left_code);
-    code_node.after(middle_text, right_code);
+    code_node.after(right_code);
     code_node.remove();
-    emacs_goto([left_code.nextSibling, middle_text.length]);
+    return left_code;
 }
 function create_code(text){
     let result = document.createElement("CODE");
@@ -254,4 +280,18 @@ function codify(){
     let [left,right] = split_text(node,offset);
     left.after(code);
     emacs_goto([code.firstChild,6]);
+}
+function swap_preceding_type(from, to){
+    let S = emacs_selection()
+    let current = S.focusNode, offset = S.focusOffset;
+    while (current.nodeName !== from){
+        current = prev_node_DFP(current,document);
+        if (current === null) return;}
+    let old_text = current.textContent;
+    let new_node = document.createElement(to);
+    new_node.textContent = old_text;
+    current.after(new_node);
+    if (current.firstChild === S.focusNode)
+        emacs_goto([new_node.firstChild, offset]);
+    current.remove();
 }
