@@ -627,8 +627,8 @@ class EditorExtension(Extension):
             m = re.match("-([ ]|&nbsp;)",field)
             if m:
                 field = field[m.end():]
-            pattern = re.compile(r"(\n|<br>)-(?:[ ]|&nbsp;)<b>[UPDATE]</b>")
-            note.fields[i] = pattern.sub("<br><hr><b>[UPDATE]</b>", field)
+            pattern = re.compile(r"(\n|<br>)-(?:[ ]|&nbsp;)<b>{UPDATE}/b>")
+            note.fields[i] = pattern.sub("<br><hr><b>{UPDATE}</b>", field)
         self.editor.set_note(note)
 
     @editor_command("Ctrl+X, B")
@@ -690,7 +690,7 @@ class EditorExtension(Extension):
             if not filt:
                 return True
             filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
-            name_parts = re.split("[ ⟶⟷/-]", name)
+            name_parts = re.split(r"[\W]", name)
             for fp in filt_parts:
                 while name_parts:
                     first, name_parts = name_parts[0], name_parts[1:]
@@ -755,11 +755,11 @@ class EditorExtension(Extension):
         capitalize = self.identifiers_study_deck.filt[0].isupper()
         if self.web.hasSelection():
             stext = self.web.selectedText()
-            text = f'"<b><span concept=[{identifier}]>#</span>{stext}</b>"'
+            text = f'"<b><span concept={{{identifier}}}>#</span>{stext}</b>"'
         else:
             if capitalize and len(choice) > 0: choice = choice[0].upper() + choice[1:]
             insert_text = QInputDialog.getText(None, "", "Text: ", text=choice)[0]
-            text = f'"<b><span concept=[{identifier}]>#</span>{insert_text}</b>"'
+            text = f'"<b><span concept={{{identifier}}}>#</span>{insert_text}</b>"'
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
         self.misc_toggle_bold()
@@ -781,7 +781,7 @@ class EditorExtension(Extension):
         if self.identifiers_choice is not None:
             identifier = self.identifiers_struct[self.identifiers_choice]
             if identifier:
-                text = f'"<b>[{identifier}]</b>"'
+                text = f'"<b>{{{identifier}}}</b>"'
                 js = f"""document.execCommand("insertHTML", false, {text});"""
                 self.eval_js(js)
                 self.misc_toggle_bold()
@@ -820,7 +820,7 @@ class EditorExtension(Extension):
     @editor_command("Ctrl+X, D")
     def insert_date(self):
         now = datetime.now()
-        timestamp = now.strftime("[%d-%b-%Y]")
+        timestamp = now.strftime("{%d-%b-%Y}")
         bold = f'"<b>{timestamp}</b>"'
         js = f"""document.execCommand("insertHTML", false, {bold});"""
         self.eval_js(js)
@@ -880,9 +880,9 @@ class AddCardsExtension(Extension):
         """Inserts the prefix into the note being edited"""
         prefix = self.prefix
         if prefix is not None:
-            prefix = "<b>["+prefix+"]</b> "
+            prefix = "<b>{"+prefix+"}</b> "
             if old is not None:
-                old = "<b>["+old+"]</b> "
+                old = "<b>{"+old+"}</b> "
             note = self.editor.note
             first_field = note.fields[0]
             if first_field.startswith(prefix):
