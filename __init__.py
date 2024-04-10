@@ -92,7 +92,7 @@ class Extension:
 # ════════════════════════════════════════
 
 # editor_commands is a dict which maps a method name to
-# a list pair [QKeySequence, QShortcut_or_None]
+# a pair [QKeySequence, QShortcut_or_None]
 editor_commands = {}
 def editor_command(key_seq_str):
     def decorator(func):
@@ -208,13 +208,13 @@ class EditorExtension(Extension):
         # after this IF statement, CODIFIED will store the text to insert
         if selected_text:
             selected_text = html.escape(selected_text)
-            codified = json.dumps(f"<code style='white-space:nowrap;'>{selected_text}</code>")
+            codified = json.dumps(f"<code>{selected_text}</code>")
         else:
             input_text, accepted = QInputDialog.getText(None, "", "Enter code:")
             if not accepted:
                 return
             escaped = html.escape(input_text)
-            codified = json.dumps(f"<code style='white-space:nowrap;'>{escaped}</code>&nbsp;")
+            codified = json.dumps(f"<code>{escaped}</code>&nbsp;")
         js = f"""
         document.execCommand("insertHTML", false, {codified});
         """
@@ -494,8 +494,8 @@ class EditorExtension(Extension):
         regexes = {r"/(.+?)/": r"<i>\1</i>",
                    r"\*(.+?)\*": r"<b>\1</b>",
                    r"_(.+?)_": r"<u>\1</u>",
-                   r"~(.+?)~": r"<code style='white-space:nowrap;'>\1</code>",
-                   r"=(.+?)=": r"<code style='white-space:nowrap;'>\1</code>",
+                   r"~(.+?)~": r"<code>\1</code>",
+                   r"=(.+?)=": r"<code>\1</code>",
                    r"\[\[(.+?)\]\[(.+?)\]\]": r'<b><span concept="[\1]">#</span>\2</b>'}
         text = mw.app.clipboard().text()
         for regex, sub in regexes.items():
@@ -690,7 +690,7 @@ class EditorExtension(Extension):
             if not filt:
                 return True
             filt_parts = list(astr for astr in re.split("[ -]", filt) if astr)
-            name_parts = re.split(r"[\W]", name)
+            name_parts = re.split(r"[^\w&+]", name)
             for fp in filt_parts:
                 while name_parts:
                     first, name_parts = name_parts[0], name_parts[1:]
