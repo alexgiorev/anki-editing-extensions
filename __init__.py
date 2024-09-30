@@ -491,19 +491,46 @@ class EditorExtension(Extension):
     def misc_yank_from_org(self):
         # The italic regex must come first, as otherwise it interferes with the
         # HTML ending tags.
-        regexes = {r"/(.+?)/": r"<i>\1</i>",
-                   r"\*(.+?)\*": r"<b>\1</b>",
+        regexes = {r"\*(.+?)\*": r"<b>\1</b>",
+                   r"/(.+?)/": r"<i>\1</i>",
                    r"_(.+?)_": r"<u>\1</u>",
                    r"~(.+?)~": r"<code>\1</code>",
-                   r"=(.+?)=": r"<code>\1</code>",
                    r"\[\[(.+?)\]\[(.+?)\]\]": r'<b><span concept="[\1]">#</span>\2</b>'}
         text = mw.app.clipboard().text()
+        text = text.replace("<","&lt;")
+        text = text.replace(">","&gt;")
         for regex, sub in regexes.items():
             text = re.sub(regex, sub, text)
         text = json.dumps(text+" ")
         js = f"""document.execCommand("insertHTML", false, {text});"""
         self.eval_js(js)
 
+    @editor_command("Ctrl+X, Y, O")
+    def misc_yank_from_org(self):
+        regex = (r"(\*.+?\*)|"
+                 r"(/.+?/)|"
+                 r"(_.+?_)|"
+                 r"(~.+?~)|"
+                 r"(\[\[.+?\]\[.+?\]\])")
+        regexes = {r"\*(.+?)\*": r"<b>\1</b>",
+                   r"/(.+?)/": r"<i>\1</i>",
+                   r"_(.+?)_": r"<u>\1</u>",
+                   r"~(.+?)~": r"<code>\1</code>",
+                   r"\[\[(.+?)\]\[(.+?)\]\]": r'<b><span concept="[\1]">#</span>\2</b>'}
+        text = mw.app.clipboard().text()
+        text = text.replace("<","&lt;"); text = text.replace(">","&gt;")
+        parts = [x for x in re.split(regex,text) if x is not None]
+        for i,part in enumerate(parts):
+            for rgx in regexes:
+                _match = re.match(rgx,part)
+                if _match:
+                    parts[i] = _match.expand(regexes[rgx])
+                    break
+        text = "".join(parts)
+        text = json.dumps(text+" ")
+        js = f"""document.execCommand("insertHTML", false, {text});"""
+        self.eval_js(js)    
+        
     class misc_CodeEdit(QTextEdit):
         def __init__(self, ext, history, parent):
             super().__init__(parent)
